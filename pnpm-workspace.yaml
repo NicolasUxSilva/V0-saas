@@ -1,0 +1,5 @@
+allowBuilds:
+  # esbuild é dependência do drizzle-kit (usado por db:push / db:generate).
+  esbuild: true
+  sharp: false
+  unrs-resolver: false
