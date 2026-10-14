@@ -267,7 +267,10 @@ export interface AdvisorContext {
   period: AdvisorPeriod;
   /** instante em que ESTE contexto foi montado (ISO) */
   generatedAt: string;
-  /** cobertura de cada fonte no período (sempre as três, na ordem ga4, rd_marketing, rd_crm) */
+  /**
+   * cobertura de cada fonte no período: sempre as três de base (ga4, rd_marketing, rd_crm)
+   * e, depois delas, a mídia paga (google_ads, meta_ads) quando o Cross-source a menciona
+   */
   sources: AdvisorSourceCoverage[];
   crossSource: AdvisorCrossSourceState;
   diagnostics: AdvisorDiagnostics;

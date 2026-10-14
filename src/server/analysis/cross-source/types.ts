@@ -19,7 +19,17 @@
  */
 import type { MetricFormat } from "../types";
 
-export type CrossSourceSource = "ga4" | "rd_marketing" | "rd_crm";
+/**
+ * As três primeiras são as fontes de base (sempre avaliadas); `google_ads` e
+ * `meta_ads` são mídia paga e OPCIONAIS: só entram em um insight quando têm dados
+ * no período. A ordem é a canônica de `CrossSourceInsight.sources`.
+ */
+export type CrossSourceSource =
+  | "ga4"
+  | "rd_marketing"
+  | "rd_crm"
+  | "google_ads"
+  | "meta_ads";
 
 export interface CrossSourcePeriod {
   /** "YYYY-MM-DD" */
@@ -29,7 +39,7 @@ export interface CrossSourcePeriod {
 
 /**
  * - `coverage`     — o que existe em cada fonte (período, dias, aquisição)
- * - `acquisition`  — sinais de aquisição lado a lado (GA4 × RD Marketing)
+ * - `acquisition`  — sinais de aquisição lado a lado (GA4 × RD Marketing) e mídia paga
  * - `commercial`   — atividade comercial do CRM
  * - `relationship` — coexistência temporal entre aquisição e atividade comercial
  * - `attribution`  — qualidade dos campos de origem do CRM
@@ -48,6 +58,8 @@ export type CrossSourceInsightType =
   | "data-coverage"
   | "acquisition-coverage"
   | "traffic-and-rd-conversions"
+  | "paid-media-activity"
+  | "paid-media-vs-traffic"
   | "commercial-activity"
   | "commercial-vs-acquisition"
   | "attribution-quality"
@@ -108,7 +120,7 @@ export interface CrossSourceInsight {
   /** período em que o insight vale — nunca mistura períodos diferentes */
   periodStart: string;
   periodEnd: string;
-  /** fontes que aparecem na evidência (ordem fixa: ga4, rd_marketing, rd_crm) */
+  /** fontes que aparecem na evidência (ordem fixa: ga4, rd_marketing, rd_crm, google_ads, meta_ads) */
   sources: CrossSourceSource[];
   statements: CrossSourceStatement[];
   /** nunca vazio */

@@ -28,7 +28,13 @@ export interface EvidenceInput {
 }
 
 /** Ordem canônica das fontes em `CrossSourceInsight.sources`. */
-const SOURCE_ORDER: readonly CrossSourceSource[] = ["ga4", "rd_marketing", "rd_crm"];
+const SOURCE_ORDER: readonly CrossSourceSource[] = [
+  "ga4",
+  "rd_marketing",
+  "rd_crm",
+  "google_ads",
+  "meta_ads",
+];
 
 export function createInsight(head: {
   type: CrossSourceInsightType;

@@ -4,6 +4,7 @@
 import type {
   AdsContext,
   AnalysisContext,
+  MetaAdsContext,
   PeriodCoverage,
   RdCrmContext,
   RdMarketingContext,
@@ -74,6 +75,8 @@ export interface ContextOpts {
   onsetDate?: string;
   /** G5 — `null` por padrão (sem Ads); testes de regressão podem injetar um fixture */
   ads?: AdsContext | null;
+  /** Meta Ads — `null` por padrão (sem Meta) */
+  metaAds?: MetaAdsContext | null;
   /** RD-1 — `null` por padrão (sem RD Station Marketing) */
   rdMarketing?: RdMarketingContext | null;
   /** RD-1 — `null` por padrão (sem RD Station CRM) */
@@ -213,6 +216,7 @@ export function makeContext(opts: ContextOpts): AnalysisContext {
     previous,
     baseline,
     ads: opts.ads ?? null,
+    metaAds: opts.metaAds ?? null,
     rdMarketing: opts.rdMarketing ?? null,
     rdCrm: opts.rdCrm ?? null,
   };

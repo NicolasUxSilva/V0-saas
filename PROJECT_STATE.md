@@ -2,10 +2,18 @@
 
 > Estado e registro de desenvolvimento do projeto. **Comece por "Estado atual (2026-10-05)" logo abaixo.**
 > O restante do documento tem duas partes: o **checkpoint original da V0** (§1–§13, de 2026-09-02, com
-> atualizações pontuais de 2026-10-05) e o **registro do ciclo V1, por bloco** (§14–§17). Seções marcadas como
-> "V0" ou "histórico" são registro — o estado atual está no bloco abaixo e em §14–§17.
+> atualizações pontuais de 2026-10-05) e o **registro do ciclo V1, por bloco** (§14–§18). Seções marcadas como
+> "V0" ou "histórico" são registro — o estado atual está no bloco abaixo e em §14–§18.
 
 ## Estado atual (2026-10-05)
+
+> **Atualização (2026-10-14) — veja §18.** Três entregas **sem migração de banco**: (1) **Google Ads no Cross-source**
+> (e no Advisor): `ctx.ads` ganhou cobertura e passou a filtrar `platform`; novos insights `paid-media-activity` e
+> `paid-media-vs-traffic`; (2) **Meta Ads**: conector real (Facebook Login, contas de anúncios, Insights campanha × dia),
+> `ctx.metaAds` e cartão em Conexões — **implementado e testado com respostas simuladas, ainda sem app da Meta
+> conectado**; (3) **Diagnóstico sempre útil**: modos real / vazio explicativo / demonstração identificada, estado real
+> de cada fonte e mídia paga real; `USE_MOCK` agora tem padrão `false`. As linhas de Google Ads e Meta Ads da tabela
+> abaixo estão atualizadas; o restante deste bloco continua sendo o retrato de 2026-10-05.
 
 **Entrega.** O Advisor V1 está entregue em modo determinístico. A integração com o modelo de linguagem (Anthropic, via
 `fetch`, sem SDK) está **implementada e desligada** (`ADVISOR_LLM_ENABLED=false`) e **nunca foi validada com geração
@@ -21,8 +29,8 @@ documentação, `main` era o commit único `4a36c36 feat: finalize advisor v1`, 
 | GA4 | conectado, dados reais | 2026-03-03 → 2026-10-05, sem buracos; 0 eventos-chave; OAuth em modo Testing |
 | RD Station Marketing | conectado, dados reais | 2 landing pages; guarda 2026-08-21 → 2026-10-04; a API só devolve 45 dias |
 | RD Station CRM | conectado, dados reais | 736 negociações; `importedHistoryStartDate` = 2026-04-07; sem moeda; `campaign_id` em 0% |
-| Google Ads | código pronto, **sem conexão nem sync real** | falta o `GOOGLE_ADS_DEVELOPER_TOKEN`; `fact_ad_performance_daily` = 0 |
-| Meta Ads | stub | — |
+| Google Ads | conectado, dados reais (atualizado em 2026-10-14) | 5 campanhas, BRL; 2026-04-10 → 2026-10-07 (723 linhas) — conectado em 2026-10-07; conexão verificada ao vivo em 2026-10-14 (token renovado, 1 conta, dados da API coincidem com o banco nos dias fechados); o developer token foi descontinuado em 09/09/2026 e não é necessário; **dados defasados em 7 dias: falta reimportar** |
+| Meta Ads | conector real, **sem conexão** (atualizado em 2026-10-14) | implementado e testado com respostas simuladas; falta criar o app da Meta e preencher `META_APP_ID`/`META_APP_SECRET` |
 
 **Cross-source persistido** (`cross_source_insights`: 16 linhas = 2 snapshots).
 - **Fechamento oficial: 2026-09-01 → 2026-10-04** (34 dias) — 8 insights, gerado em 2026-10-05T13:51:56Z (geração
@@ -153,9 +161,9 @@ Next.js 16.3.3 (App Router) · 1 app · 1 processo · sync manual inline
 ├─ CONECTORES  src/server/connectors/
 │   types.ts (contrato Connector) · registry.ts (provider→Connector) · stubs.ts
 │   shared/ (oauth-state · token · connection) · google/oauth.ts (OAuth Google compartilhado)
-│   ga4/ · google_ads/ · rd_station_marketing/ · rd_station_crm/  → REAIS e registrados (implemented: true)
-│   meta_ads (e o legado rd_station) → stubs (NotImplementedError)
-│   Google Ads: código pronto, sem conexão nem sync real (falta o developer token)
+│   ga4/ · google_ads/ · meta_ads/ · rd_station_marketing/ · rd_station_crm/  → REAIS e registrados (implemented: true)
+│   rd_station (valor morto do enum) → stub (NotImplementedError)
+│   Google Ads: conectado, dados reais · Meta Ads: implementado, ainda sem conexão (falta o app da Meta) — §18
 │
 ├─ SYNC  src/server/sync/
 │   run-sync.ts   runSync({connectionId}): janela → sync_run → token → pull → raw → normalize → runWorkspaceAnalysis
@@ -500,7 +508,7 @@ Snapshot de **2026-10-05** (leitura somente-leitura): **13 tabelas** no schema `
 - **A comparação entre períodos só vale entre períodos comparáveis:** os dois com Cross-source gerado, sem sobreposição, com o **mesmo número de dias** e com a fonte coberta nos dois (o Advisor não normaliza por dia). Outubro parcial (4 dias) × setembro inteiro ⇒ "não computável".
 - **O valor ganho cobre só parte dos negócios ganhos e o CRM não informa a moeda.** No fechamento oficial (01/09→04/10): 61.399,00, soma de 5 de 11 ganhos com valor registrado; no snapshot 01–04/10: 23.399,00, soma de 1 de 5. O Advisor mostra sempre essa ressalva e **nunca** como "R$ … de valor ganho" (o guard recusa `R$`/BRL quando nenhuma fonte informa a moeda).
 - **Defeito do Cross-source em `metric-not-computable` — corrigido no gerador (2026-10-05).** O helper de evidência marcava como `currency` todo ponto cujo id terminava em `_value`, inclusive as **contagens** `rd_crm.lost_deals_with_value`/`won_deals_with_value` (no painel de evidências do Advisor — e no `display` que o modelo receberia — um `0` saía como "0,00"). Agora o formato vem de uma lista explícita (`won_value`, `lost_value`, `average_ticket` = dinheiro). O **fechamento oficial** (01/09→04/10) já nasceu corrigido (`rd_crm.lost_deals_with_value` = contagem, "0"); o **snapshot anterior** (01–04/10) ainda tem a linha no formato antigo (painel com "0,00" nesse ponto) e fica como histórico etiquetado — não será regenerado. Narrativa, figuras e números do Advisor não são afetados (§17, "Fechamento").
-- **Meta Ads segue stub** (`NotImplementedError`); só a estrutura existe. **RD Station Marketing e RD CRM deixaram de ser stubs** no RD-1 (§15): conectores com OAuth próprio, extração, mapper e `fact_conversion_assets_daily`/`fact_deals` com dado real no workspace piloto.
+- **Meta Ads deixou de ser stub em 2026-10-14 (§18):** conector real, ainda sem app da Meta conectado. *(Texto original: "Meta Ads segue stub".)* **RD Station Marketing e RD CRM deixaram de ser stubs** no RD-1 (§15): conectores com OAuth próprio, extração, mapper e `fact_conversion_assets_daily`/`fact_deals` com dado real no workspace piloto.
 - **O Cross-source persistido envelhece.** `cross_source_insights` é uma foto do que o banco tinha quando `generateCrossSourceInsights` rodou: depois de um sync (GA4, RD Marketing ou RD CRM) o conjunto salvo pode divergir do que seria gerado agora. Não há gatilho de regeneração — gerar é sempre uma chamada explícita (INV-16) — e `generated_at`/`schema_version` são o único sinal. A política de regeneração (e a superfície de geração: botão, job ou pós-sync) continua **decisão em aberto** — o Advisor foi entregue sem ela. Exemplo real: o snapshot 01–04/10 já divergia do banco no GA4 (487 × 541 sessões) no dia seguinte à geração, porque o dia 04/10 foi reescrito por um sync posterior.
 - **O histórico do CRM é só o importado.** `rdCrm.coverage.importedHistoryStartDate` é o menor `period_start` entre os syncs bem-sucedidos do RD CRM — o histórico disponível **no SaaS**, não o início do histórico real do CRM (que não é conhecido). Período que começa antes dele sai como a limitação `rd_crm_partial_imported_history`, nunca como histórico completo.
 - **Os dados do RD limitam o que se afirma entre fontes.** A API do RD CRM não devolve `campaign_id` (0% das negociações) e `source_id` é um ID opaco, sem nomes nem dicionário de origens importado; sem isso não há atribuição, CAC, ROAS nem taxa entre GA4 × RD Marketing × RD CRM, e o Cross-source declara isso como limitação (INV-18). O RD Marketing do plano Pro só traz ativos de conversão nativos e no máximo 45 dias de histórico: a API só alcança os últimos 45 dias a partir do dia do sync, então o sync precisa rodar ao menos a cada 45 dias para não perder dias (em 2026-10-05, 01/09 ainda é alcançável, até 15/10/2026; os dias já importados ficam guardados).
@@ -1028,3 +1036,88 @@ moeda ou atribuição, transformar hipótese em fato nem ausência em zero.
   - **Testes ao fim do fechamento:** `pnpm test` → 41 arquivos passam + 3 opt-in pulados; **1072 passam, 32 opt-in pulados, 0 falham** (eram 1063: +9); pasta do Advisor 618 passam + 25 pulados. `typecheck`, `lint` e `build` verdes (rota `/advisor` presente); `db:generate` → "No schema changes" (5 migrações; nenhuma criada).
 - **Fechamento oficial do Cross-source (2026-10-05, 13:51:56Z) — 2026-09-01 → 2026-10-04.** Geração autorizada e explícita (`generateCrossSourceInsights`), só para este período, depois de um dry-run: plano real `inserted 8 · updated 0 · unchanged 0 · removed 0`; a escrita foi **só** em `cross_source_insights` (1 INSERT numa transação; o contexto foi lido por uma conexão somente-leitura e só o store recebeu a conexão de escrita). Retrato de contagem e hash das 13 tabelas antes × depois: só `cross_source_insights` mudou (8 → 16); fact tables, `raw_records`, `sync_runs` e `connections` idênticos; o snapshot 01–04/10 ficou intacto. Sem sync, sem reconexão, sem alteração de código, migração, schema, Advisor ou `AnalysisContext`. Persistidos 8 insights (`data-coverage`, `acquisition-coverage`, `traffic-and-rd-conversions`, `commercial-activity`, `commercial-vs-acquisition`, `attribution-quality`, `population-not-comparable`, `metric-not-computable`), sem duplicados (índice único `(workspace_id, period_start, period_end, dedupe_key)`); `getCrossSourceInsights` devolve exatamente essas 8 linhas e uma regeneração hipotética daria `unchanged 8`. Números: GA4 **6.443** sessões (34/34 dias, 0 eventos-chave) · RD Marketing **12** visitas e **0** conversões (34/34 dias, 2 landing pages) · RD CRM **110** criados, **11** ganhos, **104** perdidos (taxa de ganho 9,6%), valor dos ganhos **61.399,00** em **5 de 11** ganhos (moeda não informada), 0 de 104 perdidos com valor. O Advisor determinístico responde resumo, fechamento e pergunta livre (sem LLM, dita como tal) sobre este período, sem "R$" e sem fallback. **Ressalva:** o 04/10 do GA4 pode estar provisório (58 sessões; domingos normais 92–119) — para o fechamento final, ressincronizar depois de 07/10 e regenerar (idempotente).
 - **Para retomar:** `pnpm test && pnpm typecheck && pnpm lint && pnpm build`.
+
+---
+
+## 18. Mídia paga no Cross-source, Meta Ads e Diagnóstico sempre útil (2026-10-14)
+
+Três entregas, **sem migração de banco** (`pnpm db:generate` → "No schema changes"): o enum `provider` já tinha
+`meta_ads`; `fact_ad_performance_daily.platform` é texto e já previa o Meta; `cross_source_insights.type/category` são
+texto e as fontes vão em jsonb. Nenhuma mudança em login, motor de detectores, gates ou semântica dos insights.
+
+**1. Google Ads no Cross-source (e no Advisor).**
+- `AdsContext` ganhou `coverage` (dias com linha, primeiro e último — por existência de linha); `buildAdsContext` passou a
+  filtrar `platform = 'google_ads'` (a tabela é compartilhada com o Meta). Todo acesso a `fact_ad_performance_daily` do
+  motor passa por `adPerformanceFilter` (workspace + plataforma + janela; testado no SQL gerado).
+- `CrossSourceSource` = `ga4 | rd_marketing | rd_crm | google_ads | meta_ads` (ordem canônica, nesta ordem). **Mídia paga
+  é OPCIONAL:** sem linhas no período a plataforma não aparece em insight nenhum e os insights das fontes de base ficam
+  **idênticos** (travado por teste, também sobre os dados reais). `availableSources`/`windowsEquivalent` seguem só das
+  fontes de base.
+- Novos insights: `paid-media-activity` (categoria `acquisition`: investimento, impressões, cliques, CTR, CPC,
+  conversões e custo por conversão **da própria plataforma**, na moeda dela) e `paid-media-vs-traffic` (`relationship`:
+  cliques × sessões do GA4 nos canais padrão **Paid Search** (Google Ads) e **Paid Social** (Meta Ads), lado a lado,
+  **sem razão**). `data-coverage`, `commercial-vs-acquisition` e `population-not-comparable` ganham linhas/relações/
+  limitações de mídia paga **só quando há dado**. Novos códigos de limitação (todos classificados no Advisor):
+  `google_ads_not_aligned`, `meta_ads_not_aligned`, `paid_media_currency_not_informed`, `paid_media_currency_differs`,
+  `paid_media_conversions_definition`, `meta_ads_metrics_scope`, `google_ads_clicks_vs_sessions`,
+  `meta_ads_clicks_vs_sessions`, `paid_media_no_joint_rate` e `not_computed:ads_*`.
+- **Regras:** nunca soma investimento nem conversões entre plataformas (moeda e definição de conversão são de cada uma);
+  investimento sai lado a lado só na mesma moeda e com as duas cobrindo o período; moeda ausente é `null` (nunca BRL);
+  razão com denominador 0 é `null`; alinhamento = a plataforma tem linha no primeiro e no último dia do período (dias
+  sem veiculação no meio não desalinham).
+- `CROSS_SOURCE_SCHEMA_VERSION` **não subiu** (1): o formato persistido é o mesmo; só entram valores novos de `source` e de
+  tipo de insight. **Ordem segura:** publicar o código novo ANTES de regerar um conjunto persistido com mídia paga (o
+  Advisor/PDF antigo não conhece os rótulos novos).
+- Advisor: a cobertura por fonte continua com as três de base e ganha a linha de cada plataforma **que o Cross-source
+  menciona**; nova seção "Mídia paga — Google Ads e Meta Ads" (resumo, fechamento, aquisição, explicação); o resumo cita
+  investimento e cliques; a comparação entre períodos inclui custo/impressões/cliques/conversões de cada plataforma
+  contra ELA MESMA. Ausência de mídia paga não rebaixa o status da resposta. PDF e tela de resposta ganharam os rótulos.
+- **Simulação (somente leitura) sobre o piloto — fechamento 2026-09-01→2026-10-04:** Google Ads com 34/34 dias, 5
+  campanhas, BRL. Regerar o conjunto persistido (8 linhas) faria: inserir 2 (`paid-media-activity`,
+  `paid-media-vs-traffic`), atualizar 6 (`data-coverage`, `acquisition-coverage`, `traffic-and-rd-conversions`,
+  `commercial-activity`, `commercial-vs-acquisition`, `population-not-comparable` — as 3 primeiras de base por dados/gerador
+  posteriores a 2026-10-05, não por causa do Ads), manter 2 e remover 0. **Nada foi persistido** — decisão do usuário.
+- Verificação do Google Ads (leitura, 2026-10-14): conexão `connected`, refresh token válido (token renovado em memória),
+  1 conta visível e a selecionada, API devolveu os últimos 14 dias e os dias fechados coincidem com o banco; diferenças só
+  em dias reajustados pela Google e em 07/10 (importado no meio do dia). **Os dados do banco vão até 07/10:** falta
+  reimportar ("Importar dados" em Conexões).
+
+**2. Meta Ads (`src/server/connectors/meta_ads/`).**
+- OAuth manual do Facebook Login (`/v25.0/dialog/oauth`; `scope=ads_read` ou `config_id` com
+  `META_LOGIN_CONFIG_ID`): `code` → token curto → **token de longa duração (~60 dias)** → `debug_token` (valida e exige
+  `ads_read`). **Não há refresh token:** `ConnectorMeta.refreshTokenRequired = false`; `getValidAccessToken` decide com a
+  função pura `decideTokenAction` e, vencido, marca `reauth_required` (o cartão avisa 7 dias antes). O callback aceita a
+  conexão sem refresh token só para quem declara isso; Google/RD seguem exigindo.
+- Descoberta: `GET /me/adaccounts` (paginado por cursor, `act_<id>`, fuso e moeda; conta inativa leva o motivo no nome).
+  Extração: `GET /{act_id}/insights` com `level=campaign`, `time_increment=1`, janelas de 31 dias, paginação por cursor.
+  **O payload guardado em `raw_records` é saneado** (a `paging.next` da Graph API ecoa o `access_token`).
+- Mapeamento para `fact_ad_performance_daily` (`platform='meta_ads'`): `clicks` = cliques **no link**
+  (`inline_link_clicks`); `conversions` = eventos agregados `lead`, `purchase` e `complete_registration` (sem recontar
+  sub-tipos); `conversionValue` = valor das compras; alcance/frequência só em `dims` (não aditivos); métricas de leilão do
+  Google = `null`. Status de campanha não é importado (a Insights não o traz).
+- Erros tratados: token inválido (190) → "reconecte"; permissão ausente; excesso de dados; limite de taxa (4, 17, 32,
+  613, 80000–80014) e 5xx com retry/backoff. Nenhuma mensagem leva token ou segredo do app. Sem `META_APP_ID`/
+  `META_APP_SECRET` a rota de início volta para Conexões com a mensagem "não configurado" (vale também para o RD).
+- UI: cartão "Meta Ads" em Conexões (conectar, escolher conta, importar, histórico, aviso de expiração, reconectar,
+  desconectar com revogação best-effort). Versão da API: `v25.0` (ponto único em `meta_ads/http.ts`; a v26.0 já existe).
+- **Estado:** implementação + testes com respostas simuladas. **Conexão real e sincronização validada: pendentes** do app
+  da Meta (criar app, redirect URI, `ads_read`, papel de testador/administrador ou Acesso avançado — ver `.env.example`).
+
+**3. Diagnóstico sempre útil.** Decisão anterior (C5): `USE_MOCK` era a costura mock ↔ real; o piloto já usava `false`.
+Agora `getDiagnostico` devolve um `DiagnosticoView` com três modos decididos no servidor (`server/diagnostico/view.ts`):
+**real** (há insight ou métrica reais), **empty** (nada a analisar: título, motivo e ação recomendada derivados do estado
+real do GA4) e **demo** (`USE_MOCK=true`: conjunto fictício com aviso, moldura e selo "DEMONSTRAÇÃO", sem mídia paga real
+no mesmo bloco, sem gravar feedback). O **estado real de cada fonte** (conectada, conta escolhida, importou, até que dia,
+defasagem, acesso perto de expirar) e a **mídia paga real** (28 dias × 28 anteriores por plataforma) aparecem em todos os
+modos. `USE_MOCK` passou a ter padrão **`false`** (a falta de configuração não pode mais encher a tela de dado que não é do workspace). Dado fictício **nunca** preenche
+a falta de dado real.
+
+**Testes (2026-10-14).** `pnpm test` → **1258 passam, 38 opt-in pulados, 0 falham** sem a exportação de PDF do Advisor
+(que continua NÃO commitada na árvore); com ela: 1515 passam e **1 falha** — o teste de layout do PDF (título de seção
+sozinho no pé da página), preexistente e fora desta entrega. `typecheck`, `lint` e `build` limpos; `db:generate` sem
+mudanças. Mutações: 18/18 detectadas pelos testes novos. Verificação opt-in, somente leitura, no Postgres real
+(`cross-source-paid-media-integration.test.ts`): 6/6. Base antes desta entrega: 1072 passam, 32 pulados.
+
+**Pendências.** (i) Reimportar o Google Ads; (ii) criar e conectar o app da Meta; (iii) decidir se/quando regerar o
+Cross-source com mídia paga (depois de publicar o código); (iv) a `pnpm typecheck` numa cópia limpa só passa depois do
+primeiro `next build` (os tipos de rota são gerados lá) — vale para CI; (v) o teste de layout do PDF.

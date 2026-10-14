@@ -121,6 +121,8 @@ function adsContext(
     ),
     campaignCount: campaigns.length,
     campaigns,
+    // o enriquecimento não lê a cobertura; um valor coerente basta para o fixture
+    coverage: { daysWithData: 28, firstDate: window.start, lastDate: window.end },
   };
 }
 

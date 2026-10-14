@@ -159,6 +159,16 @@ export interface AnalysisContext {
    * camada Cross-source V1 (`cross-source/`), pura e fora do engine.
    */
   rdCrm: RdCrmContext | null;
+  /**
+   * Contexto de Meta Ads — `null` quando o workspace não tem conexão Meta ou não há
+   * linhas de `fact_ad_performance_daily` com `platform = 'meta_ads'` na janela
+   * `current`. Mesmo princípio do `ads`: ausência é sempre `null`, nunca um objeto
+   * zerado.
+   *
+   * **Só disponibiliza dados — nenhum *detector* lê `ctx.metaAds`.** Quem o lê é a
+   * camada Cross-source (`cross-source/`), pura e fora do engine.
+   */
+  metaAds: MetaAdsContext | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -341,6 +351,59 @@ export interface AdsContext {
   };
   campaignCount: number;
   campaigns: AdsCampaignSummary[];
+  /**
+   * Cobertura REAL da fonte dentro de `window`, por EXISTÊNCIA DE LINHA: dias com
+   * ≥ 1 linha em `fact_ad_performance_daily` e o 1º/último deles. Mesmo princípio
+   * do `RdMarketingContext.coverage` — a camada Cross-source precisa dela para
+   * dizer se a mídia paga cobre o período pedido ou só parte dele.
+   */
+  coverage: PeriodCoverage;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Meta Ads — composição do contexto (mesmo princípio do Google Ads: só
+// disponibiliza dados; nenhum detector o lê, e a relação com as outras fontes é
+// feita pela camada `cross-source/`)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Resumo de uma campanha do Meta Ads na janela `current`, agregado a partir de
+ * `fact_ad_performance_daily` (`platform = 'meta_ads'`). Todas as métricas são
+ * SOMAS dos dias da janela e são definições DA META: `clicks` são cliques no link
+ * (`inline_link_clicks`), `conversions` são os eventos de lead / compra / cadastro
+ * que a Meta atribui pela janela de atribuição da conta. Alcance (`reach`) e
+ * frequência NÃO entram: não são aditivos entre dias nem entre campanhas.
+ */
+export interface MetaAdsCampaignSummary {
+  campaignId: string;
+  /** snapshot do dia mais recente da campanha na janela */
+  campaignName: string;
+  /** objetivo da campanha (ex.: OUTCOME_LEADS); `null` se a fonte nunca reportou (vem de `dims`) */
+  objective: string | null;
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionValue: number;
+}
+
+/** Contexto de Meta Ads — ver `AnalysisContext.metaAds`. */
+export interface MetaAdsContext {
+  /** mesma janela de `AnalysisContext.current` */
+  window: { start: string; end: string };
+  /** moeda da conta de anúncios (ISO-4217); `null` se nenhuma linha reportou. Sem conversão cambial. */
+  currency: string | null;
+  totals: {
+    impressions: number;
+    clicks: number;
+    cost: number;
+    conversions: number;
+    conversionValue: number;
+  };
+  campaignCount: number;
+  campaigns: MetaAdsCampaignSummary[];
+  /** cobertura REAL da fonte dentro de `window` (existência de linha) */
+  coverage: PeriodCoverage;
 }
 
 // ─────────────────────────────────────────────────────────────────────

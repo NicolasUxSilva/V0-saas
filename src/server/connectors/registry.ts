@@ -7,9 +7,10 @@
  */
 import { ga4Connector } from "./ga4";
 import { googleAdsConnector } from "./google_ads";
+import { metaAdsConnector } from "./meta_ads";
 import { rdStationCrmConnector } from "./rd_station_crm";
 import { rdStationMarketingConnector } from "./rd_station_marketing";
-import { metaAdsStub, rdStationStub } from "./stubs";
+import { rdStationStub } from "./stubs";
 import type { Connector, ConnectorMeta, Provider } from "./types";
 
 interface RegistryEntry {
@@ -21,7 +22,7 @@ interface RegistryEntry {
 const REGISTRY: Record<Provider, RegistryEntry> = {
   ga4: { connector: ga4Connector, implemented: true },
   google_ads: { connector: googleAdsConnector, implemented: true },
-  meta_ads: { connector: metaAdsStub, implemented: false },
+  meta_ads: { connector: metaAdsConnector, implemented: true },
   // Valor morto — nunca implementado, nunca alcançável (ver `stubs.ts`).
   rd_station: { connector: rdStationStub, implemented: false },
   // RD-1: dois produtos reais, dois conectores reais.

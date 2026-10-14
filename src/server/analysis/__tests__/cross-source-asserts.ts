@@ -61,10 +61,15 @@ export function expectStructurallyValid(out: CrossSourceInsight[]): void {
       expect(e.period.start <= e.period.end, e.id).toBe(true);
       expect(e.value === null || Number.isFinite(e.value)).toBe(true);
       if (e.value === null) expect(e.note, `${e.id}: null sem explicação`).toBeTruthy();
-      if (e.format === "currency") expect(e.currency).toBeNull();
+      if (e.format === "currency") {
+        // a moeda é SEMPRE dita: o CRM não a informa (`null`); a mídia paga traz o código ISO ou `null`
+        expect(e.currency, `${e.id}: moeda não declarada`).not.toBeUndefined();
+        if (e.source === "rd_crm") expect(e.currency).toBeNull();
+        else if (e.currency !== null) expect(e.currency).toMatch(/^[A-Z]{3}$/);
+      }
     }
     expect(i.sources).toEqual(
-      (["ga4", "rd_marketing", "rd_crm"] as const).filter((s) =>
+      (["ga4", "rd_marketing", "rd_crm", "google_ads", "meta_ads"] as const).filter((s) =>
         i.evidence.some((e) => e.source === s),
       ),
     );

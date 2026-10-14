@@ -15,7 +15,30 @@ import { db } from "@/server/db";
 import { connections } from "@/server/db/schema";
 
 /** Renova o token se faltar menos que isto para expirar. */
-const REFRESH_SKEW_MS = 2 * 60_000;
+export const REFRESH_SKEW_MS = 2 * 60_000;
+
+/**
+ *  - `missing` — a conexão não tem os tokens de que o provedor precisa: reconectar;
+ *  - `use`     — o access token ainda vale;
+ *  - `refresh` — venceu (ou está perto) e há refresh token: renovar;
+ *  - `reauth`  — venceu e o provedor NÃO emite refresh token (Meta Ads, token de
+ *                longa duração): só reautorizar resolve.
+ */
+export type TokenAction = "missing" | "use" | "refresh" | "reauth";
+
+/** Decide o que fazer com o token de uma conexão. PURA — sem banco, relógio nem rede. */
+export function decideTokenAction(input: {
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  /** o provedor emite refresh token? (`ConnectorMeta.refreshTokenRequired !== false`) */
+  refreshTokenRequired: boolean;
+  msToExpiry: number;
+}): TokenAction {
+  if (!input.hasAccessToken) return "missing";
+  if (input.refreshTokenRequired && !input.hasRefreshToken) return "missing";
+  if (input.msToExpiry > REFRESH_SKEW_MS) return "use";
+  return input.hasRefreshToken ? "refresh" : "reauth";
+}
 
 export async function getValidAccessToken(
   connectionId: string,
@@ -26,20 +49,36 @@ export async function getValidAccessToken(
     .where(eq(connections.id, connectionId))
     .limit(1);
   if (!conn) throw new Error("Conexão não encontrada.");
-  if (!conn.accessTokenEnc || !conn.refreshTokenEnc) {
+
+  const connector = getConnector(conn.provider);
+  const action = decideTokenAction({
+    hasAccessToken: Boolean(conn.accessTokenEnc),
+    hasRefreshToken: Boolean(conn.refreshTokenEnc),
+    refreshTokenRequired: connector.meta.refreshTokenRequired !== false,
+    msToExpiry: (conn.tokenExpiresAt?.getTime() ?? 0) - Date.now(),
+  });
+
+  if (action === "missing" || !conn.accessTokenEnc) {
     throw new Error("Conexão sem tokens — reconecte a fonte.");
   }
+  if (action === "use") return decryptSecret(conn.accessTokenEnc);
 
-  const msToExpiry = (conn.tokenExpiresAt?.getTime() ?? 0) - Date.now();
-  if (msToExpiry > REFRESH_SKEW_MS) {
-    return decryptSecret(conn.accessTokenEnc);
+  if (action === "reauth" || !conn.refreshTokenEnc) {
+    await db
+      .update(connections)
+      .set({
+        status: "reauth_required",
+        lastError: "acesso expirado: reautorize a conta (a fonte não emite refresh token)",
+      })
+      .where(eq(connections.id, connectionId));
+    throw new Error("O acesso à fonte expirou. Reconecte a conta.");
   }
 
   // ── renovação ────────────────────────────────────────────────────
   const refreshToken = decryptSecret(conn.refreshTokenEnc);
   let fresh;
   try {
-    fresh = await getConnector(conn.provider).refreshTokens({ refreshToken });
+    fresh = await connector.refreshTokens({ refreshToken });
   } catch (e) {
     await db
       .update(connections)

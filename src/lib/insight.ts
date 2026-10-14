@@ -113,6 +113,104 @@ export interface AnalysisMeta {
 
 export type SyncStatus = "running" | "success" | "partial" | "failed";
 
+// ─────────────────────────────────────────────────────────────────────
+// Estado da tela Diagnóstico: real × vazio × demonstração
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ *  - `real`  — há dados reais do workspace (insights e/ou métricas do GA4);
+ *  - `empty` — nada para analisar ainda: a tela explica o motivo e a ação recomendada;
+ *  - `demo`  — dados FICTÍCIOS de demonstração (`USE_MOCK=true`), sempre com aviso
+ *              inequívoco. Dado de demonstração nunca se passa por real.
+ */
+export type DiagnosticoMode = "real" | "empty" | "demo";
+
+export type SourceKey =
+  | "ga4"
+  | "google_ads"
+  | "meta_ads"
+  | "rd_station_marketing"
+  | "rd_station_crm";
+
+/**
+ *  - `not_connected` — nunca conectada;
+ *  - `needs_reauth`  — o acesso expirou ou foi revogado;
+ *  - `error`         — a conexão está em erro;
+ *  - `no_account`    — conectada, mas sem conta/propriedade escolhida;
+ *  - `sync_failed`   — a última importação falhou;
+ *  - `never_synced`  — conectada e pronta, mas nunca importou;
+ *  - `no_data`       — importou, mas não há linha nenhuma;
+ *  - `synced`        — há dados importados.
+ */
+export type SourceHealth =
+  | "not_connected"
+  | "needs_reauth"
+  | "error"
+  | "no_account"
+  | "sync_failed"
+  | "never_synced"
+  | "no_data"
+  | "synced";
+
+export interface SourceStatus {
+  key: SourceKey;
+  label: string;
+  health: SourceHealth;
+  /** frase curta do estado, em pt-BR */
+  summary: string;
+  /** aviso complementar (dados defasados, acesso perto de expirar); `null` = nada a avisar */
+  notice: string | null;
+  /** o que fazer a seguir; `null` quando está tudo certo */
+  action: { label: string; href: string } | null;
+  lastSyncedAt: string | null; // ISO
+  /** período dos dados já importados; `null` = nenhum dado */
+  coverage: { first: string; last: string } | null;
+  /** o que esta fonte alimenta — mostra o que se perde sem ela */
+  feeds: string;
+}
+
+export interface PaidMediaMetric {
+  key: "cost" | "impressions" | "clicks" | "conversions";
+  label: string;
+  current: number;
+  /** `null` = não há janela anterior com dados para comparar */
+  previous: number | null;
+  /** (atual − anterior) ÷ anterior; `null` com base zero ou sem janela anterior — nunca infinito */
+  deltaPct: number | null;
+  format: MetricFormat;
+}
+
+/** Mídia paga REAL de uma plataforma: os 28 dias de dados mais recentes e os 28 anteriores. */
+export interface PaidMediaSnapshot {
+  platform: "google_ads" | "meta_ads";
+  label: string;
+  /** moeda da conta; `null` = a fonte não informou (nunca se assume BRL) */
+  currency: string | null;
+  window: { start: string; end: string };
+  comparedTo: { start: string; end: string } | null;
+  daysWithData: number;
+  metrics: PaidMediaMetric[];
+}
+
+export interface DiagnosticoEmpty {
+  title: string;
+  description: string;
+  action: { label: string; href: string } | null;
+}
+
+/** O que a página Diagnóstico renderiza: o modo e tudo o que ele precisa. */
+export interface DiagnosticoView {
+  mode: DiagnosticoMode;
+  /** `demo`: o conjunto fictício; `real`: dados do workspace; `empty`: vazio (sem insights nem métricas) */
+  data: DiagnosticoData;
+  /** estado REAL de cada fonte — também no modo demonstração */
+  sources: SourceStatus[];
+  /** mídia paga real (Google Ads / Meta Ads) com dados; vazio se nenhuma plataforma tem */
+  paidMedia: PaidMediaSnapshot[];
+  /** só no modo `empty`: por que está vazio e o que fazer */
+  empty: DiagnosticoEmpty | null;
+}
+
 export interface DiagnosticoData {
   lastSyncedAt: string | null; // ISO
   /** status do sync mais recente — dispara o aviso de dados parciais (D0) */

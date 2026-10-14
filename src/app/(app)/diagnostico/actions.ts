@@ -9,10 +9,15 @@
  * A identidade é o `dedupe_key` (estável entre análises), NÃO o `insights.id`
  * (recriável). Toda ação é escopada pelo workspace da sessão. `revalidatePath`
  * re-renderiza a tela com o estado do banco.
+ *
+ * Modo demonstração (`USE_MOCK=true`): os insights na tela são FICTÍCIOS, então nenhuma
+ * ação grava nada — senão um clique num cartão de exemplo poderia alterar um insight real
+ * de mesma chave.
  */
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { env } from "@/env";
 import type { InsightRating } from "@/lib/insight";
 import { requireWorkspace } from "@/server/auth";
 import { db } from "@/server/db";
@@ -25,6 +30,7 @@ async function setInsightStatus(
   status: InsightStatus,
 ): Promise<void> {
   const { workspaceId } = await requireWorkspace();
+  if (env.USE_MOCK) return;
   await db
     .update(insights)
     .set({ status, updatedAt: new Date() })
@@ -57,6 +63,7 @@ export async function rateInsight(
     throw new Error("Avaliação inválida.");
   }
   const { workspaceId } = await requireWorkspace();
+  if (env.USE_MOCK) return;
   await db
     .update(insights)
     .set({ rating, updatedAt: new Date() })

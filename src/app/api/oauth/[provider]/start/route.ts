@@ -3,7 +3,8 @@
  *
  * `/api/oauth/<provider>/start` — resolve o conector pelo segmento dinâmico,
  * monta a URL de consentimento com um `state` assinado e redireciona.
- * Hoje só `ga4` está implementado; os outros providers respondem 404.
+ * Provider desconhecido ou não implementado responde 404; credenciais do app ausentes
+ * neste ambiente voltam para /conexoes com `<provider>_error=not_configured`.
  */
 import { NextResponse } from "next/server";
 
@@ -24,7 +25,7 @@ function redirectUriFor(provider: Provider): string {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ provider: string }> },
 ): Promise<Response> {
   const { provider } = await params;
@@ -38,10 +39,19 @@ export async function GET(
   const { workspaceId } = await requireWorkspace(); // redireciona p/ /login se sem sessão
 
   const state = signOAuthState({ workspaceId });
-  const url = getConnector(provider).buildAuthUrl({
-    state,
-    redirectUri: redirectUriFor(provider),
-  });
+  let url: string;
+  try {
+    url = getConnector(provider).buildAuthUrl({
+      state,
+      redirectUri: redirectUriFor(provider),
+    });
+  } catch {
+    // credenciais do app ausentes neste ambiente (ex.: META_APP_ID): mensagem clara
+    // na tela de Conexões em vez de uma página de erro
+    const back = new URL("/conexoes", new URL(req.url).origin);
+    back.searchParams.set(`${provider}_error`, "not_configured");
+    return NextResponse.redirect(back, 303);
+  }
 
   return NextResponse.redirect(url);
 }

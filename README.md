@@ -45,18 +45,26 @@ fontes (RD Station), a camada Cross-source e o Advisor.
 | GA4 | Conector real (OAuth, descoberta de propriedades, `runReport`, sync) | Sim — histórico desde 2026-03-03, sem buracos |
 | RD Station Marketing | Conector real (OAuth próprio; ativos de conversão) | Sim — 2 landing pages; a API só devolve os últimos **45 dias** (plano Pro) |
 | RD Station CRM | Conector real (OAuth próprio; negociações por `updated_at`) | Sim — 736 negociações; histórico importado desde 2026-04-07; o CRM não informa moeda |
-| Google Ads | Código pronto (OAuth, descoberta, extração, `AdsContext`, enriquecimento) | **Não** — sem conexão nem sync real (falta o developer token) |
-| Meta Ads | Stub (`NotImplementedError`) | Não |
+| Google Ads | Conector real (OAuth, descoberta de contas, extração campanha × dia, `AdsContext`, enriquecimento); **entra no Cross-source e no Advisor** | Sim — conexão verificada em 2026-10-14; dados importados até 2026-10-07 (5 campanhas, BRL). O developer token foi descontinuado pela Google em 09/09/2026 e não é mais necessário |
+| Meta Ads | Conector real (Facebook Login, contas de anúncios, Marketing API Insights campanha × dia, somente leitura `ads_read`); **entra no Cross-source e no Advisor** | **Ainda não** — implementado e testado com respostas simuladas; falta criar o app da Meta e conectar (`META_APP_ID`/`META_APP_SECRET`, ver `.env.example`) |
 
 ### Camadas
 
 1. **Diagnóstico** (`/diagnostico`) — motor determinístico, sem LLM:
    `context → gates → detectores → contribution → templates → scoring → insights`.
    3 detectores (`conversion-efficiency-drop`, `traffic-volume-drop`, `data-quality`) sobre o GA4, janela de 28 dias.
-   O Google Ads só acrescentaria evidência complementar (não há dado real hoje).
+   O Google Ads acrescenta evidência complementar ao `traffic-volume-drop` de Paid Search.
+   **A tela é sempre útil:** com dados reais mostra o diagnóstico, a mídia paga (Google Ads / Meta Ads, 28 dias × 28
+   dias) e o **estado real de cada fonte**; sem dados mostra um estado vazio que explica o motivo (ex.: GA4 não
+   conectado, sem propriedade escolhida, sem primeira importação, acesso expirado) e a ação recomendada. O modo
+   demonstração (`USE_MOCK=true`, dados fictícios) existe só quando ligado de propósito, vem com aviso, moldura e selo
+   "DEMONSTRAÇÃO", não grava feedback e **nunca** preenche a falta de dado real.
 2. **Cross-source** (sem tela) — `buildCrossSourceInsights` relaciona GA4 × RD Marketing × RD CRM em um **período
-   explícito**, separando **fatos, relações observáveis, hipóteses e limitações**; nunca afirma causalidade, atribuição,
-   CAC, ROAS nem taxa entre fontes (as populações são diferentes). É persistido em `cross_source_insights` por uma
+   explícito** e, quando têm dados no período, **Google Ads e Meta Ads** (mídia paga, fontes opcionais: sem linhas, não
+   aparecem). Separa **fatos, relações observáveis, hipóteses e limitações**; nunca afirma causalidade, atribuição,
+   CAC, ROAS nem taxa entre fontes (as populações são diferentes). Cada plataforma de anúncios aparece com a própria
+   moeda e a própria definição de conversão — investimento só é posto lado a lado (nunca somado) e conversões nunca são
+   somadas nem comparadas entre plataformas. É persistido em `cross_source_insights` por uma
    **geração explícita** (`generateCrossSourceInsights`): não há botão, job nem política automática de regeneração
    (decisão em aberto).
 3. **Advisor** (`/advisor`) — lê só `insights` e `cross_source_insights` já persistidos e responde a 9 intenções
@@ -75,8 +83,9 @@ fontes (RD Station), a camada Cross-source e o Advisor.
 
 ### Entrega
 
-`pnpm test`: **1072 passam**, 32 opt-in pulados · `typecheck`, `lint` e `build` limpos · `db:generate` sem mudanças ·
-código no GitHub (repositório privado), branch `main`.
+`pnpm test` (2026-10-14): **1258 passam**, 38 opt-in pulados, 0 falham — sem a exportação de PDF do Advisor, que ainda
+não foi commitada (com ela na árvore: 1515 passam e 1 falha, o teste de layout do PDF) · `typecheck`, `lint` e `build`
+limpos · `db:generate` sem mudanças · código no GitHub, branch `main`.
 
 ## Limites operacionais
 
@@ -93,8 +102,16 @@ código no GitHub (repositório privado), branch `main`.
   workspace.
 - **Antes de publicar:** remover a rota de revisão `/dev/states` e definir `maxDuration` da página do Advisor.
 
+- **Meta Ads:** o acesso dura ~60 dias e a Meta não emite refresh token — a conexão pede reautorização ao expirar (o
+  cartão avisa 7 dias antes). Conversões da Meta = eventos de lead, compra e cadastro completo (definição da Meta);
+  cliques = cliques no link; alcance e frequência ficam guardados mas nunca são somados. Fora do modo de
+  desenvolvimento, `ads_read` para contas de terceiros exige "Acesso avançado" (revisão do app na Meta).
+- **Mídia paga no Cross-source:** cliques de anúncios e sessões do GA4 não são a mesma medida (e parte do tráfego pago
+  cai em outros canais do GA4): ficam lado a lado, sem razão. O `campaign_id` do CRM não se liga às campanhas das
+  plataformas: não há atribuição de negócios a campanhas.
+
 **Fora do escopo atual:** billing, cron/worker/sync agendado, multi-tenant real (V2), notificações, relatórios PDF,
-Meta Ads e Search Console, chat/histórico/memória/RAG no Advisor, rate limit do LLM e deploy. Detalhes em
+Search Console, chat/histórico/memória/RAG no Advisor, rate limit do LLM e deploy. Detalhes em
 [`docs/v1-architecture.md`](docs/v1-architecture.md) §11.
 
 ## Arquitetura resumida
@@ -105,12 +122,11 @@ Meta Ads e Search Console, chat/histórico/memória/RAG no Advisor, rate limit d
 - **Camadas de dados:** `raw_records` (JSONB imutável, replayável) → fact tables canônicas, uma por forma de dado
   (`fact_traffic_daily`, `fact_ad_performance_daily`, `fact_conversion_assets_daily`, `fact_deals`) → `insights`
   (diagnóstico) e `cross_source_insights` (Cross-source).
-- **Conectores** por trás de uma interface + registry: GA4, RD Marketing, RD CRM e Google Ads implementados; Meta Ads
-  é stub.
+- **Conectores** por trás de uma interface + registry: GA4, RD Marketing, RD CRM, Google Ads e Meta Ads implementados.
 - **Fluxo:**
 
 ```
-fontes (GA4 · RD Marketing · RD CRM · Google Ads*)
+fontes (GA4 · RD Marketing · RD CRM · Google Ads · Meta Ads)
   → connector.pull → raw_records → fact_* (canônico)
   → buildAnalysisContext (único ponto que lê as fontes)
         ├─ motor determinístico → insights → /diagnostico
@@ -139,7 +155,7 @@ src/
     analysis/          motor (context, gates, detectors, contribution, templates, scoring, engine, enrichment,
                        period) + cross-source/ + cross-source-store
     advisor/           Advisor (contexto, serviço, guard, modelo determinístico) + llm/ (Anthropic, atrás de flag)
-  mock.ts              fixtures da UI (USE_MOCK=true)
+  mock.ts              conjunto fictício do modo demonstração (USE_MOCK=true)
 docs/                  v1-architecture (arquitetura), ga4-setup (guia operacional), v0-plan (histórico da V0)
 PROJECT_STATE.md       estado atual e registro de desenvolvimento
 ```
@@ -174,7 +190,7 @@ pnpm db:push       # só para verificar ("No changes detected")
 pnpm db:studio     # inspeciona os dados
 ```
 
-Testes: `pnpm test` roda offline (1072 passam, 32 opt-in são pulados). Os testes opt-in — integração com o Postgres real
+Testes: `pnpm test` roda offline (1258 passam, 38 opt-in são pulados). Os testes opt-in — integração com o Postgres real
 (somente leitura) e avaliação ao vivo do LLM — só rodam com variáveis explícitas; os comandos estão em
 [`PROJECT_STATE.md`](PROJECT_STATE.md) (§15–§17).
 
@@ -191,8 +207,10 @@ variáveis obrigatórias (`src/env.ts` valida tudo por Zod no boot).
 | `GOOGLE_OAUTH_CLIENT_ID` · `GOOGLE_OAUTH_CLIENT_SECRET` | sim | — | OAuth Client (Web) do Google Cloud — login, dados GA4 e Google Ads. |
 | `GA4_REDIRECT_URI` | não | `http://localhost:3000/api/oauth/ga4/callback` | Redirect do fluxo de dados GA4 (separado do de login). |
 | `APP_ENCRYPTION_KEY` | sim | — | Chave AES-256-GCM p/ cifrar tokens de terceiros (32 bytes em base64). `openssl rand -base64 32`. |
-| `USE_MOCK` | não | `true` | `true` = UI com dados mockados; `false` = dados reais. |
-| `GOOGLE_ADS_DEVELOPER_TOKEN` · `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | não | — | Google Ads (token Basic access de uma conta MCC; id do MCC). Sem o token não há descoberta nem sync real. |
+| `USE_MOCK` | não | `false` | `true` liga o **modo demonstração** do Diagnóstico (dados fictícios, sempre identificados na tela); `false` = só dados reais, com estado vazio explicativo quando não há. |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` · `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | não | — | Google Ads (legado/opcional: a Google desativou o developer token em 09/09/2026; o login-customer-id é o id de um MCC, se houver). |
+| `META_APP_ID` · `META_APP_SECRET` | não | — | App da Meta (Meta for Developers). Sem eles o app sobe normal e só o Meta Ads não conecta. |
+| `META_LOGIN_CONFIG_ID` | não | — | Só para apps com "Facebook Login for Business": usa `config_id` no lugar de `scope`. |
 | `RD_MARKETING_CLIENT_ID` · `RD_MARKETING_CLIENT_SECRET` | não | — | App do RD Station Marketing (App Publisher). |
 | `RD_CRM_CLIENT_ID` · `RD_CRM_CLIENT_SECRET` | não | — | App **separado** do RD Station CRM. |
 | `ADVISOR_ENABLED` | não | `true` | Liga a tela `/advisor` e o server action. |

@@ -2,9 +2,9 @@
  * Conectores-esboço (bloco B0).
  *
  * Satisfazem o contrato `Connector` para o registry ficar completo, mas toda
- * operação lança `NotImplementedError`. Google Ads / Meta Ads / RD Station
- * permanecem assim nesta V0; o esboço de `ga4` é substituído pelo conector real
- * no bloco B1.
+ * operação lança `NotImplementedError`. Hoje só `rd_station` (valor morto) segue
+ * como esboço: GA4, Google Ads, Meta Ads e os dois produtos RD Station têm conector
+ * real.
  */
 import {
   type Connector,
@@ -105,10 +105,6 @@ export function createStubConnector(
 
 export const googleAdsStub = createStubConnector(
   "google_ads",
-  "planejado para pós-V0",
-);
-export const metaAdsStub = createStubConnector(
-  "meta_ads",
   "planejado para pós-V0",
 );
 export const rdStationStub = createStubConnector(

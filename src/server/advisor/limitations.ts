@@ -31,6 +31,11 @@ export const LIMITATION_SEVERITY: Readonly<Record<string, AdvisorLimitationSever
   // há números, mas incompletos / parciais / sem comparação segura
   period_not_aligned: "warning",
   period_mismatch: "warning",
+  // mídia paga: opcional — sem dado não é uma lacuna; parcial/moeda são avisos
+  google_ads_not_aligned: "warning",
+  meta_ads_not_aligned: "warning",
+  paid_media_currency_not_informed: "warning",
+  paid_media_currency_differs: "warning",
   ga4_partial_days: "warning",
   ga4_data_lag: "warning",
   rd_marketing_partial_days: "warning",
@@ -52,6 +57,11 @@ export const LIMITATION_SEVERITY: Readonly<Record<string, AdvisorLimitationSever
   no_origin_mapping: "info",
   attribution_not_supported: "info",
   populations_differ: "info",
+  paid_media_conversions_definition: "info",
+  meta_ads_metrics_scope: "info",
+  google_ads_clicks_vs_sessions: "info",
+  meta_ads_clicks_vs_sessions: "info",
+  paid_media_no_joint_rate: "info",
 };
 
 /** Famílias com sufixo variável: `not_computed:<relação>` e `metric_not_computable:<métrica>`. */

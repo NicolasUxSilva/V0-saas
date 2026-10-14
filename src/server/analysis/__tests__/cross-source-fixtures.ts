@@ -11,13 +11,17 @@
 import { addDays } from "@/lib/dates";
 import {
   assembleAnalysisContext,
+  composeAdsContext,
+  composeMetaAdsContext,
   composeRdCrmContext,
   composeRdMarketingContext,
 } from "@/server/analysis/context";
 import { planWindows } from "@/server/analysis/period";
 import type {
+  AdsContext,
   AnalysisContext,
   DayPoint,
+  MetaAdsContext,
   RdCrmContext,
   RdMarketingContext,
 } from "@/server/analysis/types";
@@ -118,6 +122,94 @@ export function makeRdCrm(
   return ctx;
 }
 
+// ── Mídia paga (Google Ads / Meta Ads) ───────────────────────────────────
+
+export interface FakeCampaign {
+  campaignId: string;
+  campaignName?: string;
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions?: number;
+  conversionValue?: number;
+}
+
+interface PaidOpts {
+  window?: { start: string; end: string };
+  /** quantos dias DA JANELA a plataforma teve linha (padrão: todos); começam no 1º dia */
+  days?: number;
+  /** escolhe EXATAMENTE quais dias têm linha; prevalece sobre `days` */
+  dates?: string[];
+  /** moeda da conta; `null` = a fonte não informou */
+  currency?: string | null;
+}
+
+function paidRows(campaigns: FakeCampaign[], opts: PaidOpts) {
+  const window = opts.window ?? WINDOW;
+  const dates =
+    opts.dates ?? Array.from({ length: opts.days ?? 28 }, (_, i) => addDays(window.start, i));
+  const currency = opts.currency === undefined ? "BRL" : opts.currency;
+  return { window, dates, currency };
+}
+
+/** Campanhas × dias → `AdsContext` real (Google Ads), montado pelo compositor de produção. */
+export function makeGoogleAds(campaigns: FakeCampaign[], opts: PaidOpts = {}): AdsContext {
+  const { window, dates, currency } = paidRows(campaigns, opts);
+  const ctx = composeAdsContext(
+    campaigns.map((c) => ({
+      campaignId: c.campaignId,
+      impressions: c.impressions,
+      clicks: c.clicks,
+      cost: c.cost,
+      conversions: c.conversions ?? 0,
+      conversionValue: c.conversionValue ?? 0,
+      impressionShare: null,
+      budgetLostIs: null,
+      rankLostIs: null,
+    })),
+    campaigns.flatMap((c) =>
+      dates.map((date) => ({
+        campaignId: c.campaignId,
+        date,
+        campaignName: c.campaignName ?? `Campanha ${c.campaignId}`,
+        status: "ENABLED",
+        currency,
+        dims: { advertisingChannelType: "SEARCH" },
+      })),
+    ),
+    window,
+  );
+  if (!ctx) throw new Error("fixture inválida: Google Ads sem campanhas");
+  return ctx;
+}
+
+/** Campanhas × dias → `MetaAdsContext` real, montado pelo compositor de produção. */
+export function makeMetaAds(campaigns: FakeCampaign[], opts: PaidOpts = {}): MetaAdsContext {
+  const { window, dates, currency } = paidRows(campaigns, opts);
+  const ctx = composeMetaAdsContext(
+    campaigns.map((c) => ({
+      campaignId: c.campaignId,
+      impressions: c.impressions,
+      clicks: c.clicks,
+      cost: c.cost,
+      conversions: c.conversions ?? 0,
+      conversionValue: c.conversionValue ?? 0,
+    })),
+    campaigns.flatMap((c) =>
+      dates.map((date) => ({
+        campaignId: c.campaignId,
+        date,
+        campaignName: c.campaignName ?? `Campanha ${c.campaignId}`,
+        currency,
+        dims: { objective: "OUTCOME_LEADS" },
+      })),
+    ),
+    window,
+  );
+  if (!ctx) throw new Error("fixture inválida: Meta Ads sem campanhas");
+  return ctx;
+}
+
 // ── cenários ─────────────────────────────────────────────────────────────
 
 /** GA4 com 5.377 sessões na janela atual (mesma ordem de grandeza do piloto). */
@@ -209,6 +301,11 @@ export function periodContext(opts: {
   expectedLastDate?: string;
   rdMarketing?: RdMarketingContext | null;
   rdCrm?: RdCrmContext | null;
+  /** mídia paga — `null` (padrão) = a plataforma não tem linhas no período */
+  ads?: AdsContext | null;
+  metaAds?: MetaAdsContext | null;
+  /** sessões do GA4 por canal padrão (substitui o único canal "Organic Search" do padrão) */
+  ga4Channels?: Record<string, number>;
 }): AnalysisContext {
   const { period } = opts;
   const periodDays = range(period.start, period.end);
@@ -240,14 +337,19 @@ export function periodContext(opts: {
       lastDate: opts.ga4LastDate ?? ga4Days[ga4Days.length - 1] ?? period.end,
       distinctDates: ga4Days.length,
       daily: rows.map((r) => dayPoint(r.date, r.sessions)),
-      curByChannel: total > 0 ? [channel("Organic Search", total)] : [],
+      curByChannel: opts.ga4Channels
+        ? Object.entries(opts.ga4Channels).map(([key, sessions]) => channel(key, sessions))
+        : total > 0
+          ? [channel("Organic Search", total)]
+          : [],
       curBySM: total > 0 ? [channel("google / organic", total)] : [],
       prevByChannel: [],
       prevBySM: [],
       baseByChannel: [],
       dailyByChannel: [],
     },
-    ads: null,
+    ads: opts.ads ?? null,
+    metaAds: opts.metaAds ?? null,
     rdMarketing: opts.rdMarketing ?? null,
     rdCrm: opts.rdCrm ?? null,
   });

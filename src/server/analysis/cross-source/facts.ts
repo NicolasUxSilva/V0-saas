@@ -14,7 +14,12 @@
  *    cobrem exatamente o período solicitado — ausência de dado nunca vira zero.
  */
 import { inclusiveDays } from "../period";
-import type { AnalysisContext, RdCrmAttributionCoverage, RdCrmContext } from "../types";
+import type {
+  AnalysisContext,
+  PeriodCoverage,
+  RdCrmAttributionCoverage,
+  RdCrmContext,
+} from "../types";
 import type { CrossSourcePeriod, CrossSourceSource } from "./types";
 
 const MS_PER_DAY = 86_400_000;
@@ -57,6 +62,12 @@ export interface Ga4Facts {
   hasData: boolean;
   /** soma das sessões do período — só significa "zero sessões" quando `hasData` */
   sessions: number;
+  /**
+   * sessões por canal padrão do GA4 (`sessionDefaultChannelGroup`) na janela `current`.
+   * `Map` (não objeto) para que um canal chamado "constructor" nunca resolva para algo
+   * herdado de `Object.prototype`.
+   */
+  sessionsByChannel: ReadonlyMap<string, number>;
   keyEvents: number;
   history: { firstDate: string | null; lastDate: string | null; distinctDates: number };
   expectedLastDate: string;
@@ -121,21 +132,75 @@ export interface RdCrmFacts {
   attribution: { created: AttributionFacts; won: AttributionFacts };
 }
 
+/** Fontes de BASE do Cross-source (sempre avaliadas), em oposição à mídia paga. */
+export type BaseSource = Extract<CrossSourceSource, "ga4" | "rd_marketing" | "rd_crm">;
+
+/** Plataformas de mídia paga — fontes OPCIONAIS do Cross-source. */
+export type PaidMediaPlatform = Extract<CrossSourceSource, "google_ads" | "meta_ads">;
+
+export const PAID_MEDIA_PLATFORMS: readonly PaidMediaPlatform[] = ["google_ads", "meta_ads"];
+
+/**
+ * O que uma plataforma de mídia paga registrou na janela. Toda métrica é DA PRÓPRIA
+ * plataforma, na definição e na moeda dela; as razões são entre campos da MESMA
+ * plataforma (CTR = cliques ÷ impressões) e saem `null` — nunca 0 — quando o
+ * denominador é 0. Nada aqui compara plataformas entre si.
+ */
+export interface PaidMediaFacts {
+  platform: PaidMediaPlatform;
+  window: CrossSourcePeriod;
+  windowDays: number;
+  /** dias com ≥ 1 linha da própria fonte na janela (veiculação registrada) */
+  daysWithData: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  /** período efetivamente coberto (1º ao último dia com linha); `null` sem datas */
+  covered: CrossSourcePeriod | null;
+  /** moeda da conta (ISO-4217); `null` = a fonte não informou — nunca se assume BRL */
+  currency: string | null;
+  campaignCount: number;
+  impressions: number;
+  /** Google Ads: cliques; Meta Ads: cliques NO LINK (`inline_link_clicks`) */
+  clicks: number;
+  cost: number;
+  /** conversões como a PLATAFORMA as define (modelo e janela de atribuição próprios) */
+  conversions: number;
+  conversionValue: number;
+  /** cliques ÷ impressões */
+  ctr: number | null;
+  /** custo ÷ cliques */
+  cpc: number | null;
+  /** custo por mil impressões */
+  cpm: number | null;
+  /** custo ÷ conversões da plataforma */
+  costPerConversion: number | null;
+}
+
 export interface SourceFacts {
   /** período SOLICITADO (`ctx.period`) */
   referencePeriod: CrossSourcePeriod;
   ga4: Ga4Facts;
   rdMarketing: RdMarketingFacts | null;
   rdCrm: RdCrmFacts | null;
-  /** fontes com dados no período, em ordem fixa (ga4, rd_marketing, rd_crm) */
-  availableSources: CrossSourceSource[];
+  /** Google Ads com linhas na janela; `null` = sem dados (não conectado OU sem linhas) */
+  googleAds: PaidMediaFacts | null;
+  /** Meta Ads com linhas na janela; `null` = sem dados (não conectado OU sem linhas) */
+  metaAds: PaidMediaFacts | null;
+  /** plataformas de mídia paga COM dados, em ordem fixa (google_ads, meta_ads) */
+  paidMedia: PaidMediaFacts[];
+  /**
+   * fontes de BASE com dados no período, em ordem fixa (ga4, rd_marketing, rd_crm).
+   * A mídia paga é opcional e fica fora desta lista (e de `aligned` para fins de
+   * `windowsEquivalent`): sua presença nunca muda os insights das fontes de base.
+   */
+  availableSources: BaseSource[];
   /**
    * Fonte com dados cuja janela E cobertura efetiva são exatamente o período
    * solicitado. Só entre duas fontes `aligned` vale a frase "no mesmo período".
    */
   aligned: Record<CrossSourceSource, boolean>;
   /** fontes COM dados que não estão alinhadas (janela diferente OU cobertura parcial nas pontas) */
-  mismatchedSources: CrossSourceSource[];
+  mismatchedSources: BaseSource[];
   /** `true` quando toda fonte com dados está alinhada ao período solicitado */
   windowsEquivalent: boolean;
 }
@@ -200,6 +265,48 @@ function crmFacts(c: RdCrmContext): RdCrmFacts {
   };
 }
 
+/** Forma comum aos contextos de Google Ads e Meta Ads. */
+interface PaidMediaInput {
+  window: { start: string; end: string };
+  currency: string | null;
+  totals: {
+    impressions: number;
+    clicks: number;
+    cost: number;
+    conversions: number;
+    conversionValue: number;
+  };
+  campaignCount: number;
+  coverage: PeriodCoverage;
+}
+
+function paidMediaFacts(platform: PaidMediaPlatform, c: PaidMediaInput): PaidMediaFacts {
+  const { impressions, clicks, cost, conversions, conversionValue } = c.totals;
+  const window = { start: c.window.start, end: c.window.end };
+  const roundedCost = round4(cost);
+  const roundedConversions = round4(conversions);
+  return {
+    platform,
+    window,
+    windowDays: inclusiveDays(window.start, window.end),
+    daysWithData: c.coverage.daysWithData,
+    firstDate: c.coverage.firstDate,
+    lastDate: c.coverage.lastDate,
+    covered: bothDates(c.coverage.firstDate, c.coverage.lastDate),
+    currency: c.currency,
+    campaignCount: c.campaignCount,
+    impressions,
+    clicks,
+    cost: roundedCost,
+    conversions: roundedConversions,
+    conversionValue: round4(conversionValue),
+    ctr: ratio(clicks, impressions),
+    cpc: ratio(roundedCost, clicks),
+    cpm: ratio(roundedCost * 1000, impressions),
+    costPerConversion: ratio(roundedCost, roundedConversions),
+  };
+}
+
 export function extractSourceFacts(ctx: AnalysisContext): SourceFacts {
   const referencePeriod: CrossSourcePeriod = {
     start: ctx.period.start,
@@ -218,6 +325,7 @@ export function extractSourceFacts(ctx: AnalysisContext): SourceFacts {
     covered: bothDates(inPeriod.firstDate, inPeriod.lastDate),
     hasData: inPeriod.daysWithData > 0,
     sessions: ctx.current.totals.sessions,
+    sessionsByChannel: new Map(ctx.current.byChannel.map((c) => [c.key, c.sessions] as const)),
     keyEvents: ctx.current.totals.keyEvents,
     history: {
       firstDate: ctx.coverage.firstDate,
@@ -256,10 +364,16 @@ export function extractSourceFacts(ctx: AnalysisContext): SourceFacts {
 
   const rdCrm = ctx.rdCrm ? crmFacts(ctx.rdCrm) : null;
 
+  const googleAds = ctx.ads ? paidMediaFacts("google_ads", ctx.ads) : null;
+  const metaAds = ctx.metaAds ? paidMediaFacts("meta_ads", ctx.metaAds) : null;
+  const paidMedia = [googleAds, metaAds].filter((p): p is PaidMediaFacts => p !== null);
+
   const present: Record<CrossSourceSource, boolean> = {
     ga4: ga4.hasData,
     rd_marketing: rdMarketing !== null,
     rd_crm: rdCrm !== null,
+    google_ads: googleAds !== null,
+    meta_ads: metaAds !== null,
   };
 
   // Alinhada = a janela da fonte E o que ela de fato cobre são o período solicitado.
@@ -275,9 +389,22 @@ export function extractSourceFacts(ctx: AnalysisContext): SourceFacts {
       rdCrm !== null &&
       samePeriod(rdCrm.window, referencePeriod) &&
       !rdCrm.partialImportedHistory,
+    // mídia paga: a janela E o trecho com linhas são o período solicitado
+    google_ads:
+      googleAds !== null &&
+      samePeriod(googleAds.window, referencePeriod) &&
+      googleAds.covered !== null &&
+      samePeriod(googleAds.covered, referencePeriod),
+    meta_ads:
+      metaAds !== null &&
+      samePeriod(metaAds.window, referencePeriod) &&
+      metaAds.covered !== null &&
+      samePeriod(metaAds.covered, referencePeriod),
   };
 
-  const order: CrossSourceSource[] = ["ga4", "rd_marketing", "rd_crm"];
+  // Só as fontes de BASE entram em `availableSources`/`mismatchedSources`: a mídia
+  // paga é opcional e nunca altera os insights que já existiam sem ela.
+  const order: BaseSource[] = ["ga4", "rd_marketing", "rd_crm"];
   const availableSources = order.filter((s) => present[s]);
   const mismatchedSources = order.filter((s) => present[s] && !aligned[s]);
 
@@ -286,6 +413,9 @@ export function extractSourceFacts(ctx: AnalysisContext): SourceFacts {
     ga4,
     rdMarketing,
     rdCrm,
+    googleAds,
+    metaAds,
+    paidMedia,
     availableSources,
     aligned,
     mismatchedSources,

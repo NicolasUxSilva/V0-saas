@@ -85,7 +85,10 @@ export async function GET(
   } catch {
     return back(origin, { [errKey]: "token_exchange_failed" });
   }
-  if (!tokens.refreshToken) {
+  // Provedores que emitem refresh token (Google, RD) exigem um; os que não emitem
+  // (Meta Ads: token de longa duração) são conectados sem ele.
+  const refreshToken = tokens.refreshToken;
+  if (!refreshToken && connector.meta.refreshTokenRequired !== false) {
     return back(origin, { [errKey]: "no_refresh_token" });
   }
 
@@ -99,7 +102,7 @@ export async function GET(
       status: "connected",
       externalAccountEmail: email,
       accessTokenEnc: encryptSecret(tokens.accessToken),
-      refreshTokenEnc: encryptSecret(tokens.refreshToken),
+      refreshTokenEnc: refreshToken ? encryptSecret(refreshToken) : null,
       tokenExpiresAt: tokens.expiresAt,
       scopes: tokens.scopes,
       keyVersion: ACTIVE_KEY_VERSION,
@@ -112,7 +115,7 @@ export async function GET(
         status: "connected",
         externalAccountEmail: email,
         accessTokenEnc: encryptSecret(tokens.accessToken),
-        refreshTokenEnc: encryptSecret(tokens.refreshToken),
+        refreshTokenEnc: refreshToken ? encryptSecret(refreshToken) : null,
         tokenExpiresAt: tokens.expiresAt,
         scopes: tokens.scopes,
         keyVersion: ACTIVE_KEY_VERSION,

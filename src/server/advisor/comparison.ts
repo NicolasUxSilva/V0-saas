@@ -44,6 +44,15 @@ export const COMPARABLE_METRICS: readonly string[] = [
   "rd_crm.won_deals",
   "rd_crm.lost_deals",
   "rd_crm.won_value",
+  // mídia paga: cada plataforma contra ELA MESMA (mesma definição e moeda nos dois períodos)
+  "google_ads.cost",
+  "google_ads.impressions",
+  "google_ads.clicks",
+  "google_ads.conversions",
+  "meta_ads.cost",
+  "meta_ads.impressions",
+  "meta_ads.clicks",
+  "meta_ads.conversions",
 ];
 
 const periodLabel = (c: AdvisorContext) =>

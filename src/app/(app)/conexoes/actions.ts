@@ -5,6 +5,9 @@
  *  - selecionarPropriedade / desconectar / atualizarDados → GA4 (B2/B3)
  *  - selecionarContaGoogleAds / desconectarGoogleAds → Google Ads (G2)
  *  - importarDadosGoogleAds → Google Ads (G3 — sync campanha × dia)
+ *  - selecionarContaMetaAds / importarDadosMetaAds / desconectarMetaAds → Meta Ads
+ *    (mesmo desenho do Google Ads: contas de anúncios descobertas, uma selecionada,
+ *    importação campanha × dia)
  *  - desconectarRdStationMarketing / importarDadosRdStationMarketing → RD-1
  *  - desconectarRdStationCrm / importarDadosRdStationCrm → RD-1
  *
@@ -21,9 +24,11 @@ import { revokeToken } from "@/server/connectors/ga4/auth";
 import { getGa4ConnectionForWorkspace } from "@/server/connectors/ga4/connection";
 import { fetchPropertyDetails } from "@/server/connectors/ga4/discovery";
 import { getValidGa4AccessToken } from "@/server/connectors/ga4/token";
+import { revokeToken as revokeMetaToken } from "@/server/connectors/meta_ads/oauth";
 import { revokeToken as revokeRdCrmToken } from "@/server/connectors/rd_station_crm/oauth";
 import { revokeToken as revokeRdMarketingToken } from "@/server/connectors/rd_station_marketing/oauth";
 import { getConnectionForWorkspace } from "@/server/connectors/shared/connection";
+import type { Provider } from "@/server/connectors/types";
 import { decryptSecret } from "@/server/crypto";
 import { db } from "@/server/db";
 import { connectionProperties, connections } from "@/server/db/schema";
@@ -95,15 +100,22 @@ export async function desconectar(): Promise<void> {
 
 // ── Google Ads (G2 — conexão + seleção de conta; sem sync ainda) ─────
 
-export async function selecionarContaGoogleAds(externalId: string): Promise<void> {
+/**
+ * Marca a conta escolhida (exatamente 1) numa conexão de conta única por vez — usada
+ * pelo Google Ads e pelo Meta Ads. Fuso/moeda já vieram da discovery.
+ */
+async function selecionarConta(
+  provider: Extract<Provider, "google_ads" | "meta_ads">,
+  label: string,
+  externalId: string,
+): Promise<void> {
   const { workspaceId } = await requireWorkspace();
-  const state = await getConnectionForWorkspace(workspaceId, "google_ads");
-  if (!state) throw new Error("Nenhuma conexão Google Ads neste workspace.");
+  const state = await getConnectionForWorkspace(workspaceId, provider);
+  if (!state) throw new Error(`Nenhuma conexão ${label} neste workspace.`);
 
   const target = state.properties.find((p) => p.externalId === externalId);
   if (!target) throw new Error("Conta não encontrada nesta conexão.");
 
-  // fuso/moeda já vieram da discovery — só marca a seleção (exatamente 1).
   await db.transaction(async (tx) => {
     await tx
       .update(connectionProperties)
@@ -116,6 +128,10 @@ export async function selecionarContaGoogleAds(externalId: string): Promise<void
   });
 
   revalidatePath("/conexoes");
+}
+
+export async function selecionarContaGoogleAds(externalId: string): Promise<void> {
+  await selecionarConta("google_ads", "Google Ads", externalId);
 }
 
 export async function importarDadosGoogleAds(): Promise<SyncResult> {
@@ -156,6 +172,58 @@ export async function desconectarGoogleAds(): Promise<void> {
   if (conn.refreshTokenEnc) {
     try {
       await revokeToken(decryptSecret(conn.refreshTokenEnc));
+    } catch {
+      // best-effort
+    }
+  }
+
+  await db.delete(connections).where(eq(connections.id, conn.id)); // cascade -> connection_properties
+  revalidatePath("/conexoes");
+}
+
+// ── Meta Ads (conexão + seleção de conta de anúncios + sync campanha × dia) ──
+
+export async function selecionarContaMetaAds(externalId: string): Promise<void> {
+  await selecionarConta("meta_ads", "Meta Ads", externalId);
+}
+
+export async function importarDadosMetaAds(): Promise<SyncResult> {
+  const { workspaceId } = await requireWorkspace();
+  const state = await getConnectionForWorkspace(workspaceId, "meta_ads");
+  if (!state) throw new Error("Nenhuma conexão Meta Ads neste workspace.");
+  if (!state.properties.some((p) => p.isSelected)) {
+    throw new Error("Selecione uma conta de anúncios do Meta Ads antes de importar.");
+  }
+
+  const result = await runSync({ connectionId: state.connection.id });
+
+  revalidatePath("/conexoes");
+  revalidatePath("/diagnostico");
+  return result;
+}
+
+export async function desconectarMetaAds(): Promise<void> {
+  const { workspaceId } = await requireWorkspace();
+
+  const [conn] = await db
+    .select({
+      id: connections.id,
+      accessTokenEnc: connections.accessTokenEnc,
+    })
+    .from(connections)
+    .where(
+      and(
+        eq(connections.workspaceId, workspaceId),
+        eq(connections.provider, "meta_ads"),
+      ),
+    )
+    .limit(1);
+  if (!conn) return;
+
+  // a Meta não tem refresh token: revoga-se o próprio token de acesso (best-effort)
+  if (conn.accessTokenEnc) {
+    try {
+      await revokeMetaToken(decryptSecret(conn.accessTokenEnc));
     } catch {
       // best-effort
     }

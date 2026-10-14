@@ -796,7 +796,7 @@ Ver §8. É a **única** forma como o Google Ads afeta o diagnóstico na V1: acr
 - **Detectores novos** — `paid-spend-drop`, `conversion-volume-drop`, `emerging-growth`, 2º detector de canal. Só depois do rating cego do piloto e com aprovação.
 - **`#5` (regra de severidade do `traffic-volume-drop`)** — permanece adiado (`PROJECT_STATE.md` §11).
 - **Google Ads além de campanha × dia** — `ad_group`, `keyword`, `search_term`/query-level (INV-13).
-- **Meta Ads, Search Console** — só a arquitetura fica preparada; nenhum é implementado na V1. *(RD Station Marketing e RD CRM foram implementados depois do G6 — §7.5.)*
+- **Search Console** — só a arquitetura fica preparada. *(RD Station Marketing e RD CRM foram implementados depois do G6 — §7.5; o **Meta Ads** foi implementado em 2026-10-14 — §15.)*
 - **AI Advisor com modelo real** — a fundação determinística (§9.7) e a conexão do modelo de linguagem (§9.8, atrás de `ADVISOR_LLM_ENABLED`, padrão `false`) foram implementadas. **Fora do escopo:** histórico persistido de conversas, memória, feedback, RAG, ferramentas para o LLM, acesso do LLM ao banco, rate limit/orçamento por workspace.
 - **Interface de chat** — o Advisor não é chatbot na V1 (D-R): a tela `/advisor` é de análises sugeridas sobre um período; a pergunta livre é respondida pelo modelo de linguagem **sobre o contexto já calculado** (sem histórico, sem memória, sem conversa).
 - **Fila / worker / cron / sync agendado** — sync continua inline (ver §13, risco).
@@ -875,3 +875,44 @@ Cada bloco: implementar só o necessário → `pnpm test` / `typecheck` / `lint`
 - Quando um bloco Gn concluir, atualizar o `PROJECT_STATE.md` (§3 blocos, §11 limitações) e, se uma decisão mudar, este documento.
 
 **Não fazer sem aprovação explícita:** alterar `traffic-volume-drop` (detector/gates/thresholds/severity/dedupe_key/firing); `#5`; detectores novos; `ad_group`/keyword/query no Google Ads; interface de chat; fila/cron; RLS; ligar a geração do Cross-source ao sync/engine sem decidir a política de regeneração; mudar o formato persistido de `cross_source_insights` sem subir `schema_version`; ligar `ADVISOR_LLM_ENABLED` para o usuário sem a avaliação ao vivo; mudar o prompt sem subir `ADVISOR_PROMPT_VERSION`; enfraquecer o guard estrito; enviar ao provedor qualquer campo fora da projeção; dar ao LLM ferramentas, memória, RAG ou acesso ao banco (INV-23); fazer o Advisor ler o `AnalysisContext`, gerar Cross-source ou escrever em qualquer tabela (INV-5, INV-20); alterar o formato do `AdvisorContext`/`AdvisorResponse` sem subir `ADVISOR_SCHEMA_VERSION`.
+
+---
+
+## 15. Mídia paga: Google Ads e Meta Ads no Cross-source (2026-10-14)
+
+Registro por bloco em `PROJECT_STATE.md` §18. Aqui, as decisões de arquitetura.
+
+**Fontes.** `CrossSourceSource` = `ga4 | rd_marketing | rd_crm | google_ads | meta_ads`. As três primeiras são as de
+**base** (sempre avaliadas); `google_ads` e `meta_ads` são **opcionais**: só entram num insight quando a plataforma tem
+linhas no período. Sem elas, todos os insights das fontes de base são os mesmos de antes (travado por teste). A relação
+"no mesmo período" das fontes de base (`windowsEquivalent`) não conta a mídia paga.
+
+**Contexto.** `AnalysisContext.ads` (Google Ads) e `AnalysisContext.metaAds` (Meta Ads) lêem a MESMA tabela canônica
+(`fact_ad_performance_daily`, D-B) separadas por `platform`; toda leitura passa por `adPerformanceFilter`
+(workspace + plataforma + janela). Cada contexto traz `coverage` (dias com linha, primeiro e último). Nenhum detector lê
+`ctx.metaAds` (INV-3/4 preservadas); o enriquecimento do G6 continua só do Google Ads.
+
+**O que o Cross-source diz (e o que não diz).** `paid-media-activity`: investimento, impressões, cliques, CTR, CPC,
+conversões e custo por conversão de cada plataforma, **na moeda e na definição dela**. `paid-media-vs-traffic`: cliques ×
+sessões do GA4 em **Paid Search** (Google Ads) e **Paid Social** (Meta Ads), lado a lado. Proibido, e travado por teste:
+somar investimento ou conversões entre plataformas; razão sessões ÷ cliques; atribuição de negócio a campanha (o
+`campaign_id` do CRM não se liga ao das plataformas); assumir BRL; razão com denominador 0 que não seja `null`.
+
+**Diferenças entre plataformas que o desenho respeita.** Cliques: Google = cliques; Meta = cliques **no link**
+(`inline_link_clicks`; os cliques totais ficam em `dims`). Conversões: Google = ações de conversão da conta; Meta =
+eventos agregados `lead`, `purchase` e `complete_registration` na janela de atribuição da conta. Alcance e frequência
+(Meta) não são aditivos: ficam em `dims` e nenhum total os usa. Métricas de leilão (parcela de impressões) só existem no
+Google: `null` no Meta. O Meta não traz o status da campanha: não é importado.
+
+**Meta Ads — autenticação.** Facebook Login manual (servidor): `code` → token curto → **token de longa duração
+(~60 dias)**; não há refresh token. `ConnectorMeta.refreshTokenRequired = false` faz o callback aceitar a conexão sem ele
+e `getValidAccessToken` (decisão pura `decideTokenAction`) pedir **reautorização** quando vence — a tela avisa 7 dias
+antes. Permissão única: `ads_read` (somente leitura). `META_LOGIN_CONFIG_ID` troca `scope` por `config_id` (Facebook
+Login for Business). O payload guardado em `raw_records` é saneado: a `paging.next` da Graph API ecoa o `access_token`.
+
+**Diagnóstico.** Três modos decididos no servidor (`server/diagnostico/view.ts`): real, vazio (motivo + ação) e
+demonstração (`USE_MOCK=true`, padrão `false`; identificada, sem gravar feedback, nunca mistura nem preenche dado real).
+O estado real das fontes e a mídia paga real aparecem em todos os modos.
+
+**Em aberto (decisão do usuário).** Regerar o Cross-source persistido com mídia paga (só depois de publicar o código);
+reimportar o Google Ads; criar e conectar o app da Meta; política de regeneração do Cross-source (já aberta em §9.7).

@@ -1,5 +1,8 @@
+import { FlaskConical } from "lucide-react";
 import Link from "next/link";
 
+import { DiagnosticoPaidMedia } from "@/components/diagnostico-paid-media";
+import { DiagnosticoSources } from "@/components/diagnostico-sources";
 import { DiagnosticoSummary } from "@/components/diagnostico-summary";
 import { InsightCard } from "@/components/insight-card";
 import { EmptyState, PartialState } from "@/components/states";
@@ -20,13 +23,56 @@ const SUPPRESS_LABEL: Record<string, string> = {
   attribution: "atribuição",
 };
 
-function PageHeader() {
+function PageHeader({ demo }: { demo?: boolean }) {
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Diagnóstico</h1>
+      <h1 className="text-xl font-semibold tracking-tight">
+        Diagnóstico
+        {demo ? (
+          <span className="ml-2 rounded-full bg-amber-500 px-2.5 py-0.5 align-middle text-xs font-semibold text-white">
+            DEMONSTRAÇÃO
+          </span>
+        ) : null}
+      </h1>
       <p className="text-sm text-muted-foreground">
         Onde está o gargalo, o que mudou e o que investigar primeiro.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Aviso do modo demonstração (`USE_MOCK=true`). Os números do conjunto de exemplo NÃO vêm
+ * das fontes do workspace — a tela diz isso por extenso e enquadra o conteúdo fictício.
+ */
+function DemoBanner() {
+  return (
+    <div
+      role="note"
+      className="flex items-start gap-3 rounded-lg border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm"
+    >
+      <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+      <div className="space-y-1">
+        <p className="font-medium text-amber-900">
+          Modo demonstração — os dados do quadro abaixo são fictícios.
+        </p>
+        <p className="text-muted-foreground">
+          Eles não vêm do GA4, do Google Ads, do Meta Ads nem do RD Station deste workspace: servem
+          só para ver como a tela funciona. As fontes de dados, mais abaixo, mostram o estado real.
+          Para ver o diagnóstico real, desligue o modo demonstração (<code>USE_MOCK=false</code>).
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DemoFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative space-y-8 rounded-xl border-2 border-dashed border-amber-500/60 p-4 pt-6">
+      <span className="absolute -top-3 left-4 rounded-full bg-amber-500 px-3 py-0.5 text-xs font-semibold text-white">
+        DEMONSTRAÇÃO — dados fictícios
+      </span>
+      {children}
     </div>
   );
 }
@@ -117,26 +163,32 @@ function HonestState({
 export default async function DiagnosticoPage() {
   const { workspaceId } = await requireWorkspace();
 
-  // Costura mock ↔ real (respeita USE_MOCK). Ver ./data.ts.
-  const data = await getDiagnostico(workspaceId);
+  // Costura real ↔ vazio ↔ demonstração, decidida no servidor. Ver ./data.ts.
+  const view = await getDiagnostico(workspaceId);
+  const { data } = view;
 
-  // Sem nenhuma métrica nem insight → não há dados sincronizados ainda.
-  if (data.supportMetrics.length === 0 && data.insights.length === 0) {
+  // Nada para analisar ainda: explica POR QUÊ, diz o que fazer e mostra o que já existe.
+  if (view.mode === "empty" && view.empty) {
+    const { empty } = view;
     return (
       <div className="mx-auto max-w-3xl space-y-8">
         <PageHeader />
         <EmptyState
-          title="Nenhum diagnóstico ainda"
-          description="Conecte uma propriedade do GA4 e rode uma sincronização para gerar o primeiro diagnóstico."
+          title={empty.title}
+          description={empty.description}
           action={
-            <Link
-              href="/conexoes"
-              className={cn(buttonVariants({ size: "sm" }))}
-            >
-              Ir para Conexões
-            </Link>
+            empty.action ? (
+              <Link
+                href={empty.action.href}
+                className={cn(buttonVariants({ size: "sm" }))}
+              >
+                {empty.action.label}
+              </Link>
+            ) : undefined
           }
         />
+        <DiagnosticoPaidMedia snapshots={view.paidMedia} />
+        <DiagnosticoSources sources={view.sources} />
       </div>
     );
   }
@@ -157,10 +209,8 @@ export default async function DiagnosticoPage() {
     critical.length + attention.length + opportunities.length === 0 &&
     data.analysis != null;
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <PageHeader />
-
+  const content = (
+    <>
       <DiagnosticoSummary data={data} />
 
       {data.lastSyncStatus === "partial" ? (
@@ -219,6 +269,24 @@ export default async function DiagnosticoPage() {
         </p>
         <SupportMetrics metrics={data.supportMetrics} />
       </section>
+    </>
+  );
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-8">
+      <PageHeader demo={view.mode === "demo"} />
+
+      {view.mode === "demo" ? (
+        <>
+          <DemoBanner />
+          <DemoFrame>{content}</DemoFrame>
+        </>
+      ) : (
+        content
+      )}
+
+      <DiagnosticoPaidMedia snapshots={view.paidMedia} />
+      <DiagnosticoSources sources={view.sources} />
     </div>
   );
 }

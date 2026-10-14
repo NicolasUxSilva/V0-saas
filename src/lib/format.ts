@@ -38,6 +38,25 @@ export function formatCurrencyBRL(n: number): string {
   return brl.format(n);
 }
 
+const nf2 = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Dinheiro NA MOEDA DA FONTE. Sem código de moeda o número sai com o aviso — a regra do
+ * projeto é nunca assumir BRL. (`formatCurrencyBRL` continua para o que é sabidamente BRL.)
+ */
+export function formatMoney(value: number, currency: string | null): string {
+  if (!currency) return `${nf2.format(value)} (moeda não informada)`;
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value);
+  } catch {
+    // código de moeda que o Intl não conhece: o número e o código, sem inventar símbolo
+    return `${nf2.format(value)} ${currency}`;
+  }
+}
+
 export function formatMetricValue(value: number, format: MetricFormat): string {
   if (format === "rate") return formatRate(value);
   if (format === "currency") return formatCurrencyBRL(value);

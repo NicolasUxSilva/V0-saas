@@ -9,7 +9,7 @@
 import { inclusiveDays } from "../period";
 
 import { createInsight } from "./builder";
-import type { SourceFacts } from "./facts";
+import type { BaseSource, SourceFacts } from "./facts";
 import { GA4_NO_ROWS_NOTE, SOURCE_LABEL, brDate, count, joinPt, periodText, plural } from "./text";
 import type { CrossSourceInsight, CrossSourcePeriod, CrossSourceSource } from "./types";
 
@@ -34,7 +34,7 @@ export function sourceUnavailable(f: SourceFacts): CrossSourceInsight | null {
   });
 
   // Um ponto por fonte (com ou sem dados) — a frase de "fontes com dados" aponta para eles.
-  const headline: Record<CrossSourceSource, string> = {
+  const headline: Record<BaseSource, string> = {
     ga4: b.ev({
       source: "ga4",
       metric: "sessions",
@@ -329,16 +329,45 @@ const UNPROVEN_RELATIONS: readonly {
     applies: (h) => h.rd_crm,
     reason: "exigiria atribuir receita a investimento em mídia, o que os dados não permitem comprovar",
   },
+  // ── mídia paga (só quando a plataforma tem dados no período) ──
+  {
+    code: "ads_clicks_to_sessions_rate",
+    label: "razão entre os cliques dos anúncios e as sessões do GA4",
+    applies: (h) => h.ga4 && (h.google_ads || h.meta_ads),
+    reason:
+      "cliques de anúncios e sessões do GA4 são medidas de fontes diferentes, sem chave de ligação entre elas",
+  },
+  {
+    code: "ads_to_deals_attribution",
+    label: "atribuição dos negócios do CRM às campanhas de mídia paga",
+    applies: (h) => h.rd_crm && (h.google_ads || h.meta_ads),
+    reason:
+      "o campaign_id do CRM é um identificador do próprio CRM, sem ligação com as campanhas do Google Ads ou do Meta Ads nos dados importados",
+  },
+  {
+    code: "ads_conversions_across_platforms",
+    label: "soma ou comparação das conversões do Google Ads e do Meta Ads",
+    applies: (h) => h.google_ads && h.meta_ads,
+    reason:
+      "cada plataforma define conversão e atribuição de forma própria (modelos e janelas diferentes), e a mesma pessoa pode ser contada pelas duas",
+  },
 ];
 
 const POPULATION_DESCRIPTION: Record<CrossSourceSource, string> = {
   ga4: "sessões de visitantes do site (GA4)",
   rd_marketing: "visitas e conversões em ativos de conversão do RD (RD Marketing)",
   rd_crm: "negócios do CRM (RD CRM)",
+  google_ads: "impressões, cliques e investimento das campanhas (Google Ads)",
+  meta_ads: "impressões, cliques no link e investimento das campanhas (Meta Ads)",
 };
 
 export function populationNotComparable(f: SourceFacts): CrossSourceInsight | null {
-  if (f.availableSources.length < 2) return null;
+  // fontes com dados, na ordem canônica: as de base e, depois, a mídia paga
+  const withData: CrossSourceSource[] = [
+    ...f.availableSources,
+    ...f.paidMedia.map((p) => p.platform),
+  ];
+  if (withData.length < 2) return null;
   const { ga4: g, rdMarketing: m, rdCrm: c } = f;
 
   const b = createInsight({
@@ -352,6 +381,8 @@ export function populationNotComparable(f: SourceFacts): CrossSourceInsight | nu
     ga4: f.availableSources.includes("ga4"),
     rd_marketing: f.availableSources.includes("rd_marketing"),
     rd_crm: f.availableSources.includes("rd_crm"),
+    google_ads: f.googleAds !== null,
+    meta_ads: f.metaAds !== null,
   };
 
   // Tamanho de cada população, cada um no período da própria fonte.
@@ -389,10 +420,21 @@ export function populationNotComparable(f: SourceFacts): CrossSourceInsight | nu
       }),
     );
   }
+  for (const p of f.paidMedia) {
+    ids.push(
+      b.ev({
+        source: p.platform,
+        metric: "clicks",
+        label: p.platform === "meta_ads" ? "Cliques no link (Meta Ads)" : "Cliques (Google Ads)",
+        period: p.window,
+        value: p.clicks,
+      }),
+    );
+  }
 
   b.limit(
     "populations_differ",
-    `As fontes com dados medem populações e eventos diferentes: ${joinPt(f.availableSources.map((s) => POPULATION_DESCRIPTION[s]))}.`,
+    `As fontes com dados medem populações e eventos diferentes: ${joinPt(withData.map((s) => POPULATION_DESCRIPTION[s]))}.`,
     ids,
   );
   for (const r of UNPROVEN_RELATIONS) {

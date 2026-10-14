@@ -201,6 +201,12 @@ export interface ConnectorMeta {
   /** dias re-puxados a cada sync incremental (retificação de atribuição da fonte) */
   restatementWindowDays: number;
   rateLimit: { requestsPerSecond: number; concurrency: number };
+  /**
+   * `false` = a fonte NÃO emite refresh token (ex.: Meta Ads, que entrega um token de
+   * longa duração de ~60 dias): o callback aceita a conexão sem ele e, quando o token
+   * expira, a conexão pede reautorização em vez de renovar. Padrão (ausente) = `true`.
+   */
+  refreshTokenRequired?: boolean;
 }
 
 export interface Connector {

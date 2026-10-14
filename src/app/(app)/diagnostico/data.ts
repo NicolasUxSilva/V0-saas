@@ -1,19 +1,29 @@
 /**
- * Costura mock ↔ real da tela Diagnóstico (bloco C5).
+ * Costura da tela Diagnóstico (bloco C5 · reformulada para "sempre útil").
  *
- * `USE_MOCK=true`  → devolve `src/mock.ts` (blocos A).
- * `USE_MOCK=false` → lê os `insights` reais do workspace + agrega
- *                    `fact_traffic_daily` (via o contexto do motor) para as
- *                    "Métricas de apoio" e para o "estado honesto".
+ * Três modos, decididos AQUI e nunca na tela:
+ *  - `real`  — há insights e/ou métricas reais do workspace (`insights` + o contexto do
+ *              motor sobre `fact_traffic_daily`);
+ *  - `empty` — não há nada para analisar ainda: a tela mostra o MOTIVO (estado do GA4) e
+ *              a ação recomendada, mais o estado de todas as fontes e a mídia paga real;
+ *  - `demo`  — `USE_MOCK=true`: o conjunto FICTÍCIO de `src/mock.ts`, sempre marcado como
+ *              demonstração na tela. Dado de demonstração NUNCA é misturado com dado
+ *              real, e a falta de dado real NUNCA é preenchida com demonstração: o
+ *              padrão de `USE_MOCK` é `false`.
  *
- * É só leitura. A escrita de feedback está em `./actions.ts`; a geração dos
- * insights está em `src/server/analysis/engine.ts` (disparada no fim do sync).
+ * Decisão anterior (docs/PROJECT_STATE, C5): `USE_MOCK` existia como costura de revisão
+ * de layout (blocos A) e passou a `false` no piloto desde o C5. Esta versão a mantém
+ * como "modo demonstração" explícito, agora identificado na tela.
+ *
+ * É só leitura. A escrita de feedback está em `./actions.ts`; a geração dos insights
+ * está em `src/server/analysis/engine.ts` (disparada no fim do sync).
  */
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { todayInTimeZone } from "@/lib/dates";
 import type {
   DiagnosticoData,
+  DiagnosticoView,
   Insight,
   InsightEvidence,
   InsightImpact,
@@ -27,6 +37,8 @@ import { buildAnalysisContext } from "@/server/analysis/context";
 import { evaluateGates } from "@/server/analysis/gates";
 import { db } from "@/server/db";
 import { connections, insights, syncRuns } from "@/server/db/schema";
+import { readPaidMedia, readSources } from "@/server/diagnostico/read";
+import { assembleView } from "@/server/diagnostico/view";
 
 const COMPARED_TO = "28 dias anteriores";
 
@@ -70,11 +82,23 @@ function rowToInsight(row: typeof insights.$inferSelect): Insight {
   };
 }
 
-export async function getDiagnostico(
-  workspaceId: string,
-): Promise<DiagnosticoData> {
-  if (env.USE_MOCK) return mockDiagnostico;
+export async function getDiagnostico(workspaceId: string): Promise<DiagnosticoView> {
+  // O estado REAL das fontes aparece em todos os modos — inclusive na demonstração.
+  const { sources, footprints } = await readSources(workspaceId);
 
+  // A decisão de modo é pura (`server/diagnostico/view.ts`) e testada sem banco.
+  return assembleView({
+    useMock: env.USE_MOCK,
+    demo: mockDiagnostico,
+    // em demonstração o diagnóstico real nem é lido
+    real: env.USE_MOCK ? null : await readRealDiagnostico(workspaceId),
+    sources,
+    paidMedia: env.USE_MOCK ? [] : await readPaidMedia(workspaceId, footprints),
+  });
+}
+
+/** Insights reais + métricas de apoio do GA4. Vazio (sem inventar nada) quando não há dado. */
+async function readRealDiagnostico(workspaceId: string): Promise<DiagnosticoData> {
   const [conn] = await db
     .select({ id: connections.id, lastSyncedAt: connections.lastSyncedAt })
     .from(connections)

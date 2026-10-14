@@ -12,6 +12,8 @@ export const SOURCE_LABEL: Record<CrossSourceSource, string> = {
   ga4: "GA4",
   rd_marketing: "RD Marketing",
   rd_crm: "RD CRM",
+  google_ads: "Google Ads",
+  meta_ads: "Meta Ads",
 };
 
 const pct1Fmt = new Intl.NumberFormat("pt-BR", {
@@ -39,6 +41,21 @@ export const count = formatCount;
 export const pct = (ratio: number): string => pct1Fmt.format(ratio);
 
 export const amount = (value: number): string => amountFmt.format(value);
+
+/**
+ * Dinheiro NA MOEDA DA CONTA — o mesmo formato que a figura da evidência recebe
+ * (`advisor/format.ts#displayValue`), para que frase e figura nunca divirjam. Sem
+ * código de moeda o número sai sem símbolo e com o aviso: nunca se assume BRL.
+ */
+export function money(value: number, currency: string | null): string {
+  if (!currency) return `${amount(value)} (moeda não informada)`;
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value);
+  } catch {
+    // código de moeda que o Intl não conhece: o número e o código, sem inventar símbolo
+    return `${amount(value)} ${currency}`;
+  }
+}
 
 /** "2026-09-05" → "05/09/2026" */
 export function brDate(iso: string): string {

@@ -1,6 +1,7 @@
 /**
  * Cross-source — camada determinística que relaciona GA4 + RD Marketing +
- * RD CRM a partir do `AnalysisContext` já construído.
+ * RD CRM (fontes de base) e, quando têm dados no período, Google Ads + Meta Ads
+ * (mídia paga, opcional) a partir do `AnalysisContext` já construído.
  *
  *   DB → fatos canônicos → `buildAnalysisContext(workspace, período?)` →
  *   (esta camada) → insights estruturados → `cross_source_insights` →
@@ -42,6 +43,7 @@ import {
   populationNotComparable,
   sourceUnavailable,
 } from "./integrity";
+import { paidMediaActivity, paidMediaVsTraffic } from "./paid-media";
 import type { CrossSourceInsight } from "./types";
 
 export { MIN_ATTRIBUTION_COVERAGE } from "./commercial";
@@ -76,6 +78,8 @@ export function buildCrossSourceInsights(ctx: AnalysisContext): CrossSourceInsig
     dataCoverage(facts),
     acquisitionCoverage(facts),
     trafficAndRdConversions(facts),
+    paidMediaActivity(facts),
+    paidMediaVsTraffic(facts),
     commercialActivity(facts),
     commercialVsAcquisition(facts),
     attributionQuality(facts),

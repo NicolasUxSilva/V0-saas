@@ -14,7 +14,9 @@
  * —, "Importar dados", histórico de sync, reconectar, desconectar). Os dois
  * compartilham o mesmo layout simples via `RdSingleAccountCard`.
  *
- * Meta Ads: apenas estrutura visível ("Em breve").
+ * Meta Ads: "não conectado" / "conectado" (conta de anúncios descoberta e selecionada,
+ * "Importar dados" campanha × dia, aviso de expiração do acesso — a Meta não emite
+ * refresh token, o acesso dura ~60 dias —, histórico, reconectar, desconectar).
  */
 import { BarChart3, Megaphone, Share2, Target, Users2 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -22,13 +24,16 @@ import type { ComponentType } from "react";
 import {
   desconectar,
   desconectarGoogleAds,
+  desconectarMetaAds,
   desconectarRdStationCrm,
   desconectarRdStationMarketing,
+  importarDadosMetaAds,
   importarDadosRdStationCrm,
   importarDadosRdStationMarketing,
 } from "@/app/(app)/conexoes/actions";
 import { GoogleAdsAccountPicker } from "@/components/google-ads-account-picker";
 import { GoogleAdsSyncButton } from "@/components/google-ads-sync-button";
+import { MetaAdsAccountPicker } from "@/components/meta-ads-account-picker";
 import { PropertyPicker } from "@/components/property-picker";
 import { RdStationSyncButton } from "@/components/rd-station-sync-button";
 import { PartialState } from "@/components/states";
@@ -559,27 +564,163 @@ export function RdStationCrmConnectionCard({
   );
 }
 
-const SOON = [{ name: "Meta Ads", icon: Share2 }] as const;
+const DAY_MS = 86_400_000;
 
-export function ComingSoonConnections() {
+/** Dias inteiros até o token expirar (arredondado para cima); negativo/zero = já expirou. */
+export function daysUntilExpiry(expiresAt: Date | null, now: Date = new Date()): number | null {
+  if (!expiresAt) return null;
+  // `|| 0` troca o -0 de `Math.ceil` (acesso expirado há menos de um dia) por 0
+  return Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_MS) || 0;
+}
+
+/** Avisa a partir de quantos dias a expiração do acesso à Meta aparece no cartão. */
+export const META_EXPIRY_WARNING_DAYS = 7;
+
+export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null }) {
+  if (!state) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Share2 className="size-5 text-muted-foreground" aria-hidden />
+            <CardTitle className="flex-1">Meta Ads</CardTitle>
+            <Badge variant="outline">Não conectado</Badge>
+          </div>
+          <CardDescription>
+            Importa investimento, impressões, cliques no link e conversões (leads, compras e
+            cadastros) das campanhas do Facebook e do Instagram, para cruzar com o GA4, o Google
+            Ads e o RD Station. Somente leitura.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* navegação de página inteira para a rota que redireciona à Meta */}
+          <a href="/api/oauth/meta_ads/start" className={cn(buttonVariants({ size: "sm" }))}>
+            Conectar Meta Ads
+          </a>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { connection, properties: accounts, recentSyncRuns } = state;
+  const selected = accounts.find((a) => a.isSelected);
+  const daysLeft = daysUntilExpiry(connection.tokenExpiresAt);
+  const expiringSoon =
+    connection.status === "connected" && daysLeft !== null && daysLeft <= META_EXPIRY_WARNING_DAYS;
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {SOON.map(({ name, icon: Icon }) => (
-        <Card key={name} className="opacity-60">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Icon className="size-5 text-muted-foreground" aria-hidden />
-              <CardTitle className="flex-1 text-sm">{name}</CardTitle>
-              <Badge variant="outline">Em breve</Badge>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Share2 className="size-5 text-muted-foreground" aria-hidden />
+          <CardTitle className="flex-1">Meta Ads</CardTitle>
+          <StatusBadge status={connection.status} />
+        </div>
+        <CardDescription>
+          {accounts.length} {accounts.length === 1 ? "conta de anúncios" : "contas de anúncios"}
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {connection.status === "reauth_required" ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+            O acesso ao Meta Ads expirou ou foi revogado. A Meta não renova o acesso sozinha:
+            reconecte a conta.
+          </div>
+        ) : null}
+        {expiringSoon ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+            {daysLeft! <= 0
+              ? "O acesso ao Meta Ads expira hoje."
+              : `O acesso ao Meta Ads expira em ${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}.`}{" "}
+            Reconecte a conta antes disso para não interromper as importações.
+          </div>
+        ) : null}
+        {connection.lastError ? (
+          <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-muted-foreground">
+            Último erro: {connection.lastError}
+          </div>
+        ) : null}
+        {recentSyncRuns[0]?.status === "partial" ? (
+          <PartialState description="A última importação atingiu o limite de linhas e ficou parcial. Rode 'Importar dados' de novo para completar o período." />
+        ) : null}
+
+        <MetaAdsAccountPicker accounts={accounts} />
+
+        <div className="space-y-2">
+          <RdStationSyncButton
+            runImport={importarDadosMetaAds}
+            productLabel="Meta Ads"
+            disabled={!accounts.some((a) => a.isSelected) || connection.status !== "connected"}
+          />
+          <p className="text-xs text-muted-foreground">
+            {selected
+              ? `Conta selecionada: ${selected.displayName} (${selected.externalId}).`
+              : "Selecione a conta de anúncios a analisar."}{" "}
+            Importa investimento, impressões, cliques no link e conversões (campanha × dia, 180
+            dias). Última importação:{" "}
+            {connection.lastSyncedAt
+              ? formatRelativeTime(connection.lastSyncedAt.toISOString())
+              : "nunca"}
+          </p>
+        </div>
+
+        {recentSyncRuns.length > 0 ? (
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Histórico
             </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Estrutura preparada — implementação pós-V0.
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {recentSyncRuns.map((run) => (
+                <li key={run.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span
+                    className={cn(
+                      "inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full",
+                      run.status === "success" && "bg-emerald-500",
+                      run.status === "partial" && "bg-amber-500",
+                      run.status === "failed" && "bg-red-500",
+                      run.status === "running" && "bg-muted-foreground",
+                    )}
+                    aria-hidden
+                  />
+                  <span>{formatRelativeTime(run.startedAt.toISOString())}</span>
+                  <span>· {run.trigger === "initial" ? "1ª carga" : "manual"}</span>
+                  {run.periodStart && run.periodEnd ? (
+                    <span>
+                      · {run.periodStart} a {run.periodEnd}
+                    </span>
+                  ) : null}
+                  {run.status === "success" || run.status === "partial" ? (
+                    <span>
+                      · {run.rowsWritten ?? 0} gravada(s) / {run.rowsIn ?? 0} lida(s)
+                    </span>
+                  ) : null}
+                  {run.status === "failed" && run.error ? (
+                    <span className="text-red-700">· {run.error.slice(0, 120)}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
+
+      <CardFooter className="flex-wrap gap-2">
+        <a
+          href="/api/oauth/meta_ads/start"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          Reconectar
+        </a>
+        <form action={desconectarMetaAds}>
+          <Button type="submit" variant="ghost" size="sm">
+            Desconectar
+          </Button>
+        </form>
+        <span className="text-xs text-muted-foreground">
+          Remove a conexão e as contas. É possível reconectar depois.
+        </span>
+      </CardFooter>
+    </Card>
   );
 }

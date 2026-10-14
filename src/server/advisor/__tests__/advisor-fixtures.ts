@@ -10,6 +10,8 @@ import {
   OCT,
   deal,
   lost,
+  makeGoogleAds,
+  makeMetaAds,
   makeRdCrm,
   makeRdMarketing,
   octoberCrmRows,
@@ -18,12 +20,29 @@ import {
 } from "@/server/analysis/__tests__/cross-source-fixtures";
 import { createMemoryStore } from "@/server/analysis/__tests__/cross-source-store-memory";
 import { generateCrossSourceInsights, getCrossSourceInsights } from "@/server/analysis/cross-source-store";
-import type { AnalysisContext, RdCrmContext, RdMarketingContext } from "@/server/analysis/types";
+import type {
+  AdsContext,
+  AnalysisContext,
+  MetaAdsContext,
+  RdCrmContext,
+  RdMarketingContext,
+} from "@/server/analysis/types";
 
 import type { AdvisorServiceDeps } from "../service";
 import type { AdvisorDiagnosticItem, AdvisorPeriodInput } from "../types";
 
-export { OCT, deal, lost, makeRdCrm, makeRdMarketing, octoberCrmRows, periodContext, won };
+export {
+  OCT,
+  deal,
+  lost,
+  makeGoogleAds,
+  makeMetaAds,
+  makeRdCrm,
+  makeRdMarketing,
+  octoberCrmRows,
+  periodContext,
+  won,
+};
 
 export const WS = "ws-advisor-test";
 /** instante em que o Cross-source foi gerado */
@@ -55,6 +74,25 @@ export function octoberRdMarketing(window = OCT): RdMarketingContext {
   );
 }
 
+/** Google Ads em outubro: 2 campanhas, R$ 400,00 investidos, 4 dias de veiculação. */
+export function octoberGoogleAds(): AdsContext {
+  return makeGoogleAds(
+    [
+      { campaignId: "g1", campaignName: "Search institucional", impressions: 8000, clicks: 400, cost: 300, conversions: 12 },
+      { campaignId: "g2", campaignName: "Search servidores", impressions: 2000, clicks: 100, cost: 100, conversions: 3.5 },
+    ],
+    { window: OCT, days: 4 },
+  );
+}
+
+/** Meta Ads em outubro: 1 campanha de leads, R$ 250,00 investidos, 4 dias de veiculação. */
+export function octoberMetaAds(): MetaAdsContext {
+  return makeMetaAds(
+    [{ campaignId: "m1", campaignName: "Leads — servidores", impressions: 30000, clicks: 450, cost: 250, conversions: 9 }],
+    { window: OCT, days: 4 },
+  );
+}
+
 /** O fechamento parcial de outubro em miniatura (o mesmo do Cross-source: 9 criados, 5 ganhos, 14 perdidos). */
 export function octoberContext(
   over: {
@@ -62,10 +100,16 @@ export function octoberContext(
     ga4Days?: string[];
     rdMarketing?: RdMarketingContext | null;
     rdCrm?: RdCrmContext | null;
+    ads?: AdsContext | null;
+    metaAds?: MetaAdsContext | null;
+    ga4Channels?: Record<string, number>;
   } = {},
 ): AnalysisContext {
   return periodContext({
     period: OCT,
+    ads: over.ads ?? null,
+    metaAds: over.metaAds ?? null,
+    ...(over.ga4Channels ? { ga4Channels: over.ga4Channels } : {}),
     ...("ga4Days" in over ? { ga4Days: over.ga4Days } : { ga4Rows: over.ga4Rows ?? OCT_GA4_ROWS }),
     rdMarketing: "rdMarketing" in over ? (over.rdMarketing ?? null) : octoberRdMarketing(),
     rdCrm: "rdCrm" in over ? (over.rdCrm ?? null) : makeRdCrm(octoberCrmRows(), OCT, "2026-04-07"),
@@ -79,12 +123,16 @@ export function septemberContext(
     visits?: number;
     crmRows?: ReturnType<typeof octoberCrmRows>;
     importedHistoryStartDate?: string | null;
+    ads?: AdsContext | null;
+    metaAds?: MetaAdsContext | null;
   } = {},
 ): AnalysisContext {
   const sessions = over.sessions ?? [100, 110, 95, 105];
   const dates = ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"];
   return periodContext({
     period: SEP,
+    ads: over.ads ?? null,
+    metaAds: over.metaAds ?? null,
     ga4Rows: dates.map((date, i) => ({ date, sessions: sessions[i] ?? 0 })),
     rdMarketing: makeRdMarketing(
       [{ assetId: "a1", assetIdentifier: "lp-exemplo", assetType: "LandingPage", visits: over.visits ?? 4, conversions: 0 }],

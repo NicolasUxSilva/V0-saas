@@ -12,7 +12,7 @@ import { inclusiveDays } from "../period";
 
 import { createInsight } from "./builder";
 import type { SourceFacts } from "./facts";
-import { amount, brDate, count, joinPt, pct, periodText, plural } from "./text";
+import { SOURCE_LABEL, amount, brDate, count, joinPt, money, pct, periodText, plural } from "./text";
 import type { CrossSourceInsight } from "./types";
 
 /**
@@ -172,7 +172,9 @@ export function commercialActivity(f: SourceFacts): CrossSourceInsight | null {
 export function commercialVsAcquisition(f: SourceFacts): CrossSourceInsight | null {
   const { ga4: g, rdMarketing: m, rdCrm: c } = f;
   if (!c) return null;
-  if (!g.hasData && !m) return null; // nada de aquisição para situar o CRM
+  // mídia paga que cobre exatamente o período solicitado: opcional, sinal de aquisição a mais
+  const paid = f.paidMedia.filter((p) => f.aligned[p.platform]);
+  if (!g.hasData && !m && paid.length === 0) return null; // nada de aquisição para situar o CRM
   if (!f.windowsEquivalent) return null; // "mesmo período" só vale com janelas idênticas
 
   const ref = f.referencePeriod;
@@ -232,6 +234,24 @@ export function commercialVsAcquisition(f: SourceFacts): CrossSourceInsight | nu
     );
   }
 
+  const paidIds: string[] = [];
+  for (const p of paid) {
+    const cost = b.ev({
+      source: p.platform,
+      metric: "cost",
+      label: `Investimento (${SOURCE_LABEL[p.platform]})`,
+      period: p.window,
+      value: p.cost,
+      format: "currency",
+      currency: p.currency,
+    });
+    paidIds.push(cost);
+    b.fact(
+      `O ${SOURCE_LABEL[p.platform]} registrou investimento de ${money(p.cost, p.currency)} no período (${periodText(p.window)}).`,
+      [cost],
+    );
+  }
+
   const sessionsSentence = sessions
     ? ` No mesmo período, o GA4 registrou ${count(g.sessions)} sessões.`
     : "";
@@ -264,6 +284,13 @@ export function commercialVsAcquisition(f: SourceFacts): CrossSourceInsight | nu
     b.relation(
       `No mesmo período (${P}), o GA4 registrou ${count(g.sessions)} sessões e o CRM registrou atividade comercial; não há dados do RD Marketing no período.`,
       [...crmIds, ...sessionsIds, ...rdIds],
+    );
+  }
+
+  if (paid.length > 0 && c.hasActivity) {
+    b.relation(
+      `No mesmo período (${P}), a mídia paga (${joinPt(paid.map((p) => SOURCE_LABEL[p.platform]))}) registrou investimento e o CRM registrou atividade comercial; os sinais coexistem no tempo.`,
+      [...crmIds, ...paidIds],
     );
   }
 

@@ -88,7 +88,7 @@ No `.env.local` (não versionado; referência em [`../.env.example`](../.env.exa
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Client secret do passo 2.3 | Google Cloud |
 | `GA4_REDIRECT_URI` | `http://localhost:3000/api/oauth/ga4/callback` | tem de bater com o redirect URI cadastrado |
 | `APP_ENCRYPTION_KEY` | `openssl rand -base64 32` (decodifica p/ 32 bytes) | gerado localmente |
-| `USE_MOCK` | `false` para ver os insights reais; `true` volta ao mock da UI | — |
+| `USE_MOCK` | `false` (padrão) mostra os insights reais; `true` liga o modo demonstração (dados fictícios, sempre identificados na tela) | — |
 
 `src/env.ts` valida tudo por Zod no boot — falta ou formato errado derruba a app
 com mensagem apontando o campo. Reinicie o `pnpm dev` após editar o `.env.local`.

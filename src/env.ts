@@ -80,10 +80,12 @@ const schema = z.object({
       "APP_ENCRYPTION_KEY deve decodificar para exatamente 32 bytes",
     ),
 
-  // [A4 → C5] Alterna a UI entre dados mockados (true) e dados reais (false).
+  // [A4 → C5] `true` liga o MODO DEMONSTRAÇÃO do Diagnóstico: dados fictícios,
+  // sempre marcados como tal na tela. Padrão `false` — a falta de configuração nunca
+  // pode fazer a tela se encher de dados que não são do workspace.
   USE_MOCK: z
     .enum(["true", "false"])
-    .default("true")
+    .default("false")
     .transform((v) => v === "true"),
 
   // [RD-1] RD Station Marketing — credenciais do app criado no App Publisher
@@ -101,6 +103,18 @@ const schema = z.object({
   // `${AUTH_URL}/api/oauth/rd_station_crm/callback`.
   RD_CRM_CLIENT_ID: z.string().min(1).optional(),
   RD_CRM_CLIENT_SECRET: z.string().min(1).optional(),
+
+  // [Meta Ads] App da Meta (Meta for Developers): ID e segredo. OPCIONAIS — sem
+  // eles o app sobe normal; só conectar/sincronizar o Meta Ads falha, com mensagem
+  // clara. O redirect URI é o padrão genérico
+  // `${AUTH_URL}/api/oauth/meta_ads/callback` (cadastre-o em "Valid OAuth Redirect
+  // URIs" do app). Vazio (`META_APP_ID=`) vale como ausente.
+  META_APP_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  META_APP_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  // [Meta Ads] ID da configuração do "Facebook Login for Business", se o app usar
+  // esse produto: quando definido, o diálogo de login usa `config_id` no lugar de
+  // `scope`. OPCIONAL — com o Facebook Login clássico fica em branco.
+  META_LOGIN_CONFIG_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 
   // [Advisor] Liga/desliga o Advisor (INV-8: o produto funciona 100% sem ele).
   // Padrão `true` porque o Advisor desta fase é determinístico e só lê dados já

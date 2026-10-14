@@ -54,12 +54,27 @@ export class AdvisorContextError extends Error {
   }
 }
 
-export const SOURCE_ORDER: readonly AdvisorSource[] = ["ga4", "rd_marketing", "rd_crm"];
+export const SOURCE_ORDER: readonly AdvisorSource[] = [
+  "ga4",
+  "rd_marketing",
+  "rd_crm",
+  "google_ads",
+  "meta_ads",
+];
+
+/**
+ * Fontes de BASE: aparecem na cobertura de toda resposta, com ou sem dado. A mídia paga
+ * (Google Ads, Meta Ads) é opcional — só ganha uma linha de cobertura quando o Cross-source
+ * a menciona, porque uma fonte não conectada não é uma lacuna dos dados.
+ */
+export const BASE_SOURCES: ReadonlySet<AdvisorSource> = new Set(["ga4", "rd_marketing", "rd_crm"]);
 
 export const SOURCE_LABEL: Record<AdvisorSource, string> = {
   ga4: "GA4",
   rd_marketing: "RD Marketing",
   rd_crm: "RD CRM",
+  google_ads: "Google Ads",
+  meta_ads: "Meta Ads",
 };
 
 /** Métricas de evidência que descrevem a COBERTURA de uma fonte (não a atividade dela). */
@@ -77,6 +92,9 @@ const UNAVAILABLE_CODE: Record<AdvisorSource, string> = {
   ga4: "ga4_unavailable",
   rd_marketing: "rd_marketing_unavailable",
   rd_crm: "rd_crm_unavailable",
+  // a mídia paga sem dado não é mencionada pelo Cross-source: estes códigos não são emitidos hoje
+  google_ads: "google_ads_unavailable",
+  meta_ads: "meta_ads_unavailable",
 };
 
 /** Códigos do Cross-source que dizem que a fonte tem dado, mas só parte do período. */
@@ -84,6 +102,8 @@ const PARTIAL_CODES: Record<AdvisorSource, readonly string[]> = {
   ga4: ["ga4_partial_days", "ga4_data_lag"],
   rd_marketing: ["rd_marketing_partial_days"],
   rd_crm: ["rd_crm_partial_imported_history"],
+  google_ads: ["google_ads_not_aligned"],
+  meta_ads: ["meta_ads_not_aligned"],
 };
 
 export interface ComposeInput {
@@ -238,7 +258,10 @@ export function composeAdvisorContext(input: ComposeInput): AdvisorContext {
 
   // ── cobertura por fonte (a partir dos CÓDIGOS das limitações — não de uma recontagem) ──
   const codes = new Set(crossLimitations.map((l) => l.code));
-  const sources: AdvisorSourceCoverage[] = SOURCE_ORDER.map((source) => {
+  const mentioned = new Set(evidenceList.map((e) => e.source));
+  const sources: AdvisorSourceCoverage[] = SOURCE_ORDER.filter(
+    (source) => BASE_SOURCES.has(source) || mentioned.has(source),
+  ).map((source) => {
     const status: AdvisorSourceStatus = !generated
       ? "unknown"
       : codes.has(UNAVAILABLE_CODE[source])

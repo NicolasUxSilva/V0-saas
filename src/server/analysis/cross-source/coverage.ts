@@ -126,6 +126,28 @@ export function dataCoverage(f: SourceFacts): CrossSourceInsight {
     );
   }
 
+  // Mídia paga (Google Ads / Meta Ads): OPCIONAL — só aparece quando a plataforma tem
+  // dados no período. Fonte sem dados não gera linha (nada a cobrir) e nunca entra na
+  // frase de equivalência abaixo, que continua sendo só das fontes de base.
+  for (const p of f.paidMedia) {
+    const label = SOURCE_LABEL[p.platform];
+    const id = b.ev({
+      source: p.platform,
+      metric: "days_with_data",
+      label: `Dias com registros (${label})`,
+      period: p.window,
+      value: p.daysWithData,
+    });
+    const edges =
+      p.firstDate && p.lastDate
+        ? `; primeiro registro em ${brDate(p.firstDate)} e último em ${brDate(p.lastDate)}`
+        : "";
+    b.fact(
+      `${label}: registros em ${count(p.daysWithData)} de ${count(p.windowDays)} dias do período (${periodText(p.window)})${edges}.`,
+      [id],
+    );
+  }
+
   // Só afirma "mesmo período" quando há ≥ 2 fontes com dados E as janelas coincidem.
   if (f.availableSources.length >= 2 && f.windowsEquivalent) {
     b.relation(

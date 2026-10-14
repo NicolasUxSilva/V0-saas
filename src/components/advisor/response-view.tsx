@@ -31,6 +31,8 @@ const SOURCE_LABEL: Record<AdvisorSource, string> = {
   ga4: "GA4",
   rd_marketing: "RD Marketing",
   rd_crm: "RD CRM",
+  google_ads: "Google Ads",
+  meta_ads: "Meta Ads",
 };
 
 const STATUS: Record<AdvisorResponseStatus, { label: string; className: string }> = {

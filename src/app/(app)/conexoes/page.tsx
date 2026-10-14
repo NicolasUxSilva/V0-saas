@@ -1,7 +1,7 @@
 import {
-  ComingSoonConnections,
   Ga4ConnectionCard,
   GoogleAdsConnectionCard,
+  MetaAdsConnectionCard,
   RdStationCrmConnectionCard,
   RdStationMarketingConnectionCard,
 } from "@/components/connection-cards";
@@ -22,6 +22,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_refresh_token:
     "O Google não devolveu um refresh token. Revogue o acesso em myaccount.google.com/permissions e reconecte.",
   persist_failed: "Erro ao salvar a conexão.",
+  not_configured:
+    "Esta integração ainda não está configurada neste ambiente (faltam as credenciais do aplicativo).",
 };
 
 const GA4_ERROR_MESSAGES: Record<string, string> = {
@@ -34,6 +36,17 @@ const GOOGLE_ADS_ERROR_MESSAGES: Record<string, string> = {
   ...ERROR_MESSAGES,
   discovery_failed:
     "Conectado, mas a listagem de contas falhou. Veja o último erro no card do Google Ads (o acesso depende do nível de acesso do projeto Google Cloud e da permissão do usuário na conta) e reconecte.",
+};
+
+const META_ADS_ERROR_MESSAGES: Record<string, string> = {
+  ...ERROR_MESSAGES,
+  access_denied: "Você recusou o acesso na Meta.",
+  token_exchange_failed:
+    "Falha ao trocar o código de autorização com a Meta, ou a permissão ads_read não foi concedida. Tente de novo concedendo o acesso às contas de anúncios.",
+  discovery_failed:
+    "Conectado, mas a listagem das contas de anúncios falhou. Veja o último erro no card do Meta Ads (o usuário que autorizou precisa ter acesso a uma conta de anúncios e o app, a permissão ads_read) e reconecte.",
+  not_configured:
+    "O Meta Ads ainda não está configurado neste ambiente: faltam META_APP_ID e META_APP_SECRET (veja .env.example).",
 };
 
 // Mensagens de erro do OAuth genérico (`access_denied`, `missing_params`, ...)
@@ -60,9 +73,10 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
   const { workspaceId } = await requireWorkspace();
   const searchParams = await props.searchParams;
 
-  const [ga4State, adsState, rdMarketingState, rdCrmState] = await Promise.all([
+  const [ga4State, adsState, metaState, rdMarketingState, rdCrmState] = await Promise.all([
     getGa4ConnectionForWorkspace(workspaceId),
     getConnectionForWorkspace(workspaceId, "google_ads"),
+    getConnectionForWorkspace(workspaceId, "meta_ads"),
     getConnectionForWorkspace(workspaceId, "rd_station_marketing"),
     getConnectionForWorkspace(workspaceId, "rd_station_crm"),
   ]);
@@ -70,12 +84,14 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
   // Banners de resultado do OAuth — o provider vem no prefixo do query param.
   const ga4Error = pickString(searchParams.ga4_error);
   const adsError = pickString(searchParams.google_ads_error);
+  const metaError = pickString(searchParams.meta_ads_error);
   const rdMarketingError = pickString(searchParams.rd_station_marketing_error);
   const rdCrmError = pickString(searchParams.rd_station_crm_error);
   const count = pickString(searchParams.properties);
   const ga4Ok = pickString(searchParams.ga4_connected) !== null && count !== null;
   const adsOk =
     pickString(searchParams.google_ads_connected) !== null && count !== null;
+  const metaOk = pickString(searchParams.meta_ads_connected) !== null && count !== null;
   const rdMarketingOk =
     pickString(searchParams.rd_station_marketing_connected) !== null;
   const rdCrmOk = pickString(searchParams.rd_station_crm_connected) !== null;
@@ -98,6 +114,11 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
         <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
           {GOOGLE_ADS_ERROR_MESSAGES[adsError] ??
             `Erro ao conectar o Google Ads: ${adsError}`}
+        </div>
+      ) : null}
+      {metaError ? (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+          {META_ADS_ERROR_MESSAGES[metaError] ?? `Erro ao conectar o Meta Ads: ${metaError}`}
         </div>
       ) : null}
       {rdMarketingError ? (
@@ -126,6 +147,13 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
           qual analisar abaixo.
         </div>
       ) : null}
+      {metaOk ? (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+          Meta Ads conectado — {count}{" "}
+          {count === "1" ? "conta de anúncios encontrada" : "contas de anúncios encontradas"}.
+          Escolha qual analisar abaixo.
+        </div>
+      ) : null}
       {rdMarketingOk ? (
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
           RD Station Marketing conectado.
@@ -140,15 +168,9 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
       <div className="space-y-3">
         <Ga4ConnectionCard state={ga4State} />
         <GoogleAdsConnectionCard state={adsState} />
+        <MetaAdsConnectionCard state={metaState} />
         <RdStationMarketingConnectionCard state={rdMarketingState} />
         <RdStationCrmConnectionCard state={rdCrmState} />
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Outros conectores
-        </h2>
-        <ComingSoonConnections />
       </div>
     </div>
   );

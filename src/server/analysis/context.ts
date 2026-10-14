@@ -63,6 +63,9 @@ import type {
   AnalysisContext,
   AnalysisPeriodInput,
   DayPoint,
+  MetaAdsCampaignSummary,
+  MetaAdsContext,
+  PeriodCoverage,
   RdCrmAttributionCoverage,
   RdCrmContext,
   RdCrmPipelineSummary,
@@ -140,10 +143,13 @@ export function assembleAnalysisContext(input: {
   expectedLastDate: string;
   traffic: TrafficInputs;
   ads: AdsContext | null;
+  /** Meta Ads — opcional por compatibilidade: ausente = `null` (sem Meta) */
+  metaAds?: MetaAdsContext | null;
   rdMarketing: RdMarketingContext | null;
   rdCrm: RdCrmContext | null;
 }): AnalysisContext {
   const { workspaceId, plan, expectedLastDate, traffic, ads, rdMarketing, rdCrm } = input;
+  const metaAds = input.metaAds ?? null;
   const { periodStart, analysisEnd, previousStart, previousEnd, baselineStart, baselineEnd } =
     plan;
 
@@ -263,6 +269,7 @@ export function assembleAnalysisContext(input: {
     ads,
     rdMarketing,
     rdCrm,
+    metaAds,
   };
 }
 
@@ -445,6 +452,10 @@ export async function buildAnalysisContext(
     start: periodStart,
     end: analysisEnd,
   });
+  const metaAds = await buildMetaAdsContext(workspaceId, {
+    start: periodStart,
+    end: analysisEnd,
+  });
   const rdMarketing = await buildRdMarketingContext(workspaceId, {
     start: periodStart,
     end: analysisEnd,
@@ -476,6 +487,7 @@ export async function buildAnalysisContext(
       })),
     },
     ads,
+    metaAds,
     rdMarketing,
     rdCrm,
   });
@@ -567,7 +579,28 @@ export function composeAdsContext(
     { impressions: 0, clicks: 0, cost: 0, conversions: 0, conversionValue: 0 },
   );
 
-  return { window, currency, totals, campaignCount: campaigns.length, campaigns };
+  return {
+    window,
+    currency,
+    totals,
+    campaignCount: campaigns.length,
+    campaigns,
+    coverage: coverageOfDates(snapshotRows),
+  };
+}
+
+/**
+ * Cobertura por EXISTÊNCIA DE LINHA: dias distintos com ≥ 1 linha e o 1º/último deles.
+ * Linha com valor 0 é dado válido (zero registrado); dia sem linha é dia sem dado e
+ * nunca é preenchido com zero.
+ */
+function coverageOfDates(rows: { date: string }[]): PeriodCoverage {
+  const dates = [...new Set(rows.map((r) => r.date))].sort();
+  return {
+    daysWithData: dates.length,
+    firstDate: dates[0] ?? null,
+    lastDate: dates.at(-1) ?? null,
+  };
 }
 
 /** SUM cumulativo, 0 quando não há linha (nunca `null` para métricas de volume/custo). */
@@ -575,6 +608,26 @@ const adsSum = (col: SQLWrapper) =>
   sql<number>`coalesce(sum(${col}), 0)::float8`;
 /** AVG — preserva `null` quando nenhuma linha reportou (métrica de leilão, não cumulativa). */
 const adsAvg = (col: SQLWrapper) => sql<number | null>`avg(${col})::float8`;
+
+/**
+ * O filtro de TODA leitura de `fact_ad_performance_daily` para o motor: workspace +
+ * PLATAFORMA + janela. A tabela é compartilhada entre Google Ads e Meta Ads, então sem a
+ * igualdade em `platform` o contexto de uma plataforma engoliria as linhas da outra — e
+ * sem o `workspace_id` vazaria dado entre clientes. Exportado só para os testes
+ * conferirem o SQL gerado.
+ */
+export function adPerformanceFilter(
+  workspaceId: string,
+  platform: "google_ads" | "meta_ads",
+  window: { start: string; end: string },
+) {
+  return and(
+    eq(factAdPerformanceDaily.workspaceId, workspaceId),
+    eq(factAdPerformanceDaily.platform, platform),
+    gte(factAdPerformanceDaily.date, window.start),
+    lte(factAdPerformanceDaily.date, window.end),
+  );
+}
 
 /** Único ponto que lê `fact_ad_performance_daily` para o motor (INV-2: mesma regra do tráfego). */
 async function buildAdsContext(
@@ -594,13 +647,8 @@ async function buildAdsContext(
       rankLostIs: adsAvg(factAdPerformanceDaily.rankLostIs),
     })
     .from(factAdPerformanceDaily)
-    .where(
-      and(
-        eq(factAdPerformanceDaily.workspaceId, workspaceId),
-        gte(factAdPerformanceDaily.date, window.start),
-        lte(factAdPerformanceDaily.date, window.end),
-      ),
-    )
+    // a tabela é compartilhada com o Meta Ads: cada plataforma tem o PRÓPRIO contexto
+    .where(adPerformanceFilter(workspaceId, "google_ads", window))
     .groupBy(factAdPerformanceDaily.campaignId);
 
   // Sem linhas na janela = sem Ads (não conectado OU conectado sem dados no
@@ -617,16 +665,126 @@ async function buildAdsContext(
       dims: factAdPerformanceDaily.dims,
     })
     .from(factAdPerformanceDaily)
-    .where(
-      and(
-        eq(factAdPerformanceDaily.workspaceId, workspaceId),
-        gte(factAdPerformanceDaily.date, window.start),
-        lte(factAdPerformanceDaily.date, window.end),
-      ),
-    )
+    .where(adPerformanceFilter(workspaceId, "google_ads", window))
     .orderBy(asc(factAdPerformanceDaily.date));
 
   return composeAdsContext(perCampaign, snapshotRows, window);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Meta Ads — lê fact_ad_performance_daily (platform = 'meta_ads'), alinhada à
+// janela `current`. Puramente aditiva: sem linhas, `metaAds` fica `null`.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Linha agregada por campanha (SUM cumulativo). */
+interface MetaAdsPerCampaignAgg {
+  campaignId: string;
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionValue: number;
+}
+
+/** Linha crua (1 por campanha × dia) usada só para achar o snapshot mais recente e a cobertura. */
+interface MetaAdsSnapshotRow {
+  campaignId: string;
+  date: string;
+  campaignName: string;
+  currency: string | null;
+  dims: unknown;
+}
+
+/**
+ * Agregados por campanha + snapshot → `MetaAdsContext`. **Pura** — não toca o banco
+ * e não conhece GA4, RD nem Google Ads. `perCampaign.length === 0` → `null`.
+ * `snapshotRows` deve vir em ordem de data crescente (a última escrita por campanha
+ * é o dia mais recente dela na janela).
+ */
+export function composeMetaAdsContext(
+  perCampaign: MetaAdsPerCampaignAgg[],
+  snapshotRows: MetaAdsSnapshotRow[],
+  window: { start: string; end: string },
+): MetaAdsContext | null {
+  if (perCampaign.length === 0) return null;
+
+  const latestByCampaign = new Map<string, MetaAdsSnapshotRow>();
+  for (const row of snapshotRows) latestByCampaign.set(row.campaignId, row);
+
+  let currency: string | null = null;
+  const campaigns: MetaAdsCampaignSummary[] = perCampaign.map((agg) => {
+    const snap = latestByCampaign.get(agg.campaignId);
+    if (!currency && snap?.currency) currency = snap.currency;
+    const dims = (snap?.dims ?? null) as { objective?: string | null } | null;
+
+    return {
+      campaignId: agg.campaignId,
+      campaignName: snap?.campaignName ?? "",
+      objective: dims?.objective ?? null,
+      impressions: agg.impressions,
+      clicks: agg.clicks,
+      cost: agg.cost,
+      conversions: agg.conversions,
+      conversionValue: agg.conversionValue,
+    };
+  });
+
+  const totals = campaigns.reduce(
+    (acc, c) => ({
+      impressions: acc.impressions + c.impressions,
+      clicks: acc.clicks + c.clicks,
+      cost: acc.cost + c.cost,
+      conversions: acc.conversions + c.conversions,
+      conversionValue: acc.conversionValue + c.conversionValue,
+    }),
+    { impressions: 0, clicks: 0, cost: 0, conversions: 0, conversionValue: 0 },
+  );
+
+  return {
+    window,
+    currency,
+    totals,
+    campaignCount: campaigns.length,
+    campaigns,
+    coverage: coverageOfDates(snapshotRows),
+  };
+}
+
+/** Único ponto que lê o Meta Ads em `fact_ad_performance_daily` para o motor (INV-2). */
+async function buildMetaAdsContext(
+  workspaceId: string,
+  window: { start: string; end: string },
+): Promise<MetaAdsContext | null> {
+  const inWindow = adPerformanceFilter(workspaceId, "meta_ads", window);
+
+  const perCampaign = await db
+    .select({
+      campaignId: factAdPerformanceDaily.campaignId,
+      impressions: adsSum(factAdPerformanceDaily.impressions),
+      clicks: adsSum(factAdPerformanceDaily.clicks),
+      cost: adsSum(factAdPerformanceDaily.cost),
+      conversions: adsSum(factAdPerformanceDaily.conversions),
+      conversionValue: adsSum(factAdPerformanceDaily.conversionValue),
+    })
+    .from(factAdPerformanceDaily)
+    .where(inWindow)
+    .groupBy(factAdPerformanceDaily.campaignId);
+
+  if (perCampaign.length === 0) return null;
+
+  const snapshotRows = await db
+    .select({
+      campaignId: factAdPerformanceDaily.campaignId,
+      date: factAdPerformanceDaily.date,
+      campaignName: factAdPerformanceDaily.campaignName,
+      currency: factAdPerformanceDaily.currency,
+      dims: factAdPerformanceDaily.dims,
+    })
+    .from(factAdPerformanceDaily)
+    .where(inWindow)
+    .orderBy(asc(factAdPerformanceDaily.date));
+
+  return composeMetaAdsContext(perCampaign, snapshotRows, window);
 }
 
 // ─────────────────────────────────────────────────────────────────────

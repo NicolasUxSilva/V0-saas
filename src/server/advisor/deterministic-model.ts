@@ -14,7 +14,7 @@
  *
  * Pura: sem banco, rede, env, relógio nem aleatoriedade.
  */
-import { COVERAGE_METRICS } from "./compose";
+import { COVERAGE_METRICS, SOURCE_LABEL } from "./compose";
 import { count, periodText, plural } from "./format";
 import { INTENT_LABEL, type AdvisorIntent } from "./intents";
 import { bySeverity, comparisonNotComputable, llmNotConnected } from "./limitations";
@@ -173,6 +173,7 @@ function citesValue(context: AdvisorContext, s: AdvisorStatement): boolean {
 type TopicId =
   | "coverage"
   | "acquisition"
+  | "paidMedia"
   | "commercial"
   | "values"
   | "attribution"
@@ -211,6 +212,17 @@ function topics(context: AdvisorContext): Record<TopicId, TopicSpec> {
       relations: types(acquisitionType),
       limitations: types("acquisition-coverage", "traffic-and-rd-conversions"),
       figures: (e) => (e.source === "ga4" || e.source === "rd_marketing") && !COVERAGE_METRICS.has(e.metric),
+    },
+    paidMedia: {
+      id: "paid_media",
+      title: "Mídia paga — Google Ads e Meta Ads",
+      content:
+        "Investimento, impressões, cliques e conversões que cada plataforma de anúncios registrou. Cada plataforma tem a própria moeda e a própria definição de conversão: os números aparecem lado a lado e nunca são somados nem combinados numa taxa.",
+      facts: types("paid-media-activity", "paid-media-vs-traffic"),
+      relations: types("paid-media-activity", "paid-media-vs-traffic"),
+      limitations: types("paid-media-activity", "paid-media-vs-traffic"),
+      figures: (e) =>
+        (e.source === "google_ads" || e.source === "meta_ads") && !COVERAGE_METRICS.has(e.metric),
     },
     commercial: {
       id: "commercial",
@@ -444,6 +456,17 @@ function headline(context: AdvisorContext): string[] {
     out.push("RD CRM: sem negócios criados ou fechados no período");
   }
 
+  // mídia paga: só as plataformas com dados no período (opcional — sem dado, sem frase)
+  for (const platform of ["google_ads", "meta_ads"] as const) {
+    const cost = by(`${platform}.cost`);
+    const clicks = by(`${platform}.clicks`);
+    if (cost && clicks && cost.value !== null && clicks.value !== null && cost.display !== null) {
+      out.push(
+        `${SOURCE_LABEL[platform]}: ${cost.display} investidos e ${clicks.display} ${plural(clicks.value, "clique", "cliques")}`,
+      );
+    }
+  }
+
   return out;
 }
 
@@ -596,6 +619,7 @@ export function answerDeterministically(
         sections: [
           buildTopic(context, t.coverage, shown),
           buildTopic(context, t.acquisition, shown),
+          buildTopic(context, t.paidMedia, shown),
           buildTopic(context, t.commercial, shown),
           buildTopic(context, t.values, shown),
         ],
@@ -611,6 +635,7 @@ export function answerDeterministically(
         sections: [
           buildTopic(context, t.coverage, shown),
           buildTopic(context, t.acquisition, shown),
+          buildTopic(context, t.paidMedia, shown),
           buildTopic(context, t.commercial, shown),
           buildTopic(context, t.values, shown),
           buildTopic(context, t.attribution, shown),
@@ -632,6 +657,7 @@ export function answerDeterministically(
         sections: [
           buildTopic(context, t.coverage, shown),
           buildTopic(context, t.acquisition, shown),
+          buildTopic(context, t.paidMedia, shown),
           buildTopic(context, t.populations, shown),
         ],
       });
@@ -660,6 +686,7 @@ export function answerDeterministically(
         sections: [
           buildTopic(context, t.coverage, shown),
           buildTopic(context, t.acquisition, shown),
+          buildTopic(context, t.paidMedia, shown),
           buildTopic(context, t.commercial, shown),
           diag.section,
           buildTopic(context, t.relationships, shown),

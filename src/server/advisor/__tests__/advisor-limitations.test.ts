@@ -29,10 +29,14 @@ import {
   OCT_GA4_ROWS,
   deal,
   lost,
+  makeGoogleAds,
+  makeMetaAds,
   makeRdCrm,
   makeRdMarketing,
   octoberContext,
   octoberCrmRows,
+  octoberGoogleAds,
+  octoberMetaAds,
   periodContext,
   septemberContext,
   won,
@@ -83,6 +87,19 @@ function emittedCodes(): Set<string> {
       rdCrm: makeRdCrm(octoberCrmRows(), OCT, "2026-04-07"),
     }),
     septemberContext(),
+    // mídia paga: alinhada, só uma plataforma, parcial, moedas diferentes e moeda não informada
+    octoberContext({ ads: octoberGoogleAds(), metaAds: octoberMetaAds() }),
+    octoberContext({ ads: octoberGoogleAds() }),
+    octoberContext({ metaAds: octoberMetaAds() }),
+    octoberContext({
+      ads: makeGoogleAds([{ campaignId: "g1", impressions: 10, clicks: 1, cost: 5 }], { window: OCT, days: 2 }),
+      metaAds: makeMetaAds([{ campaignId: "m1", impressions: 10, clicks: 1, cost: 5 }], { window: OCT, days: 2 }),
+    }),
+    octoberContext({
+      ads: octoberGoogleAds(),
+      metaAds: makeMetaAds([{ campaignId: "m1", impressions: 10, clicks: 1, cost: 5 }], { window: OCT, days: 4, currency: "USD" }),
+    }),
+    octoberContext({ ads: makeGoogleAds([{ campaignId: "g1", impressions: 10, clicks: 1, cost: 5 }], { window: OCT, days: 4, currency: null }) }),
   ];
   const codes = new Set<string>();
   for (const ctx of contexts) {
@@ -161,7 +178,7 @@ describe("completude da tabela contra o Cross-source real", () => {
   });
 
   it("todo código ESCRITO no código-fonte do Cross-source está classificado (inclusive ramos que nenhum cenário alcança)", () => {
-    const sources = ["coverage.ts", "integrity.ts", "commercial.ts"].map((f) => read(`server/analysis/cross-source/${f}`));
+    const sources = ["coverage.ts", "integrity.ts", "commercial.ts", "paid-media.ts"].map((f) => read(`server/analysis/cross-source/${f}`));
     const found = new Set<string>();
     for (const src of sources) {
       for (const m of src.matchAll(/\.limit\(\s*["'`]([A-Za-z0-9_:$.{}]+)["'`]/g)) {
@@ -173,7 +190,7 @@ describe("completude da tabela contra o Cross-source real", () => {
   });
 
   it("a tabela não tem entrada morta: todo código fixo dela existe no código do Cross-source", () => {
-    const all = ["coverage.ts", "integrity.ts", "commercial.ts"].map((f) => read(`server/analysis/cross-source/${f}`)).join("\n");
+    const all = ["coverage.ts", "integrity.ts", "commercial.ts", "paid-media.ts"].map((f) => read(`server/analysis/cross-source/${f}`)).join("\n");
     for (const code of Object.keys(LIMITATION_SEVERITY)) {
       expect(all.includes(`"${code}"`), `código na tabela mas ausente do Cross-source: ${code}`).toBe(true);
     }
