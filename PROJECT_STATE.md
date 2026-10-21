@@ -7,6 +7,11 @@
 
 ## Estado atual (2026-10-05)
 
+> **Atualização (2026-10-21) — veja §19.** Área **Campanhas** (Fase 1 da solução de tráfego pago): visão geral de
+> Google Ads e Meta Ads com período, comparação, filtros e estados reais de importação; detalhe por campanha →
+> grupo/conjunto → anúncio. **Exige a migração 0005 (aditiva, NÃO aplicada)** para os níveis 2 e 3; sem ela, a área
+> funciona no nível de campanha e avisa o resto.
+
 > **Atualização (2026-10-14) — veja §18.** Três entregas **sem migração de banco**: (1) **Google Ads no Cross-source**
 > (e no Advisor): `ctx.ads` ganhou cobertura e passou a filtrar `platform`; novos insights `paid-media-activity` e
 > `paid-media-vs-traffic`; (2) **Meta Ads**: conector real (Facebook Login, contas de anúncios, Insights campanha × dia),
@@ -1121,3 +1126,60 @@ mudanças. Mutações: 18/18 detectadas pelos testes novos. Verificação opt-in
 **Pendências.** (i) Reimportar o Google Ads; (ii) criar e conectar o app da Meta; (iii) decidir se/quando regerar o
 Cross-source com mídia paga (depois de publicar o código); (iv) a `pnpm typecheck` numa cópia limpa só passa depois do
 primeiro `next build` (os tipos de rota são gerados lá) — vale para CI; (v) o teste de layout do PDF.
+
+## 19. Área Campanhas — Fase 1 do tráfego pago (2026-10-21)
+
+**Entrega.** Nova área `/campanhas` (item "Campanhas" na sidebar), só leitura, sobre os dados já importados — nenhuma
+importação é disparada ao abrir a página (importar continua sendo a ação explícita em Conexões).
+
+- **Visão geral** (`/campanhas`): filtros na URL (formulário GET) — plataforma (todas/Google/Meta), período (7/14/28/30/90
+  dias terminando ONTEM, ou personalizado até 366 dias), comparação com o período anterior equivalente (liga/desliga),
+  status (só os valores que existem nos dados; Meta não traz status), "só investimento sem resultados", ordenação e
+  paginação (50). Um painel por plataforma: estado real da fonte (mesma regra do Diagnóstico — `readSources`), conta de
+  origem, última importação, importação em andamento/interrompida, falha só no detalhe, cobertura do período, avisos
+  (fuso da conta, dias ainda sujeitos a reprocessamento) e totais **por plataforma e por moeda**. Tabela compacta:
+  investimento, resultados (rótulo da definição na linha), custo por resultado, cliques, CTR, com variação.
+- **Detalhe** (`/campanhas/[plataforma]/[campanha]`): todas as métricas (investimento, impressões, cliques, CTR, CPC, CPM,
+  resultados, custo por resultado, valor de conversão) atual × anterior com variação absoluta e %, a definição de
+  "resultado", eventos da Meta por tipo, e a tabela de **grupos de anúncios** (Google) / **conjuntos de anúncios** (Meta)
+  com fatia do investimento e conciliação com a campanha. `/campanhas/[plataforma]/[campanha]/[grupo]`: o grupo/conjunto e
+  seus **anúncios**.
+
+**Regras de dados** (`server/campaigns/metrics.ts`, `compose.ts`, `period.ts` — puros e testados):
+- Cobertura vem de `sync_runs` (success|partial): dia coberto depois de terminar = fechado; dia igual ao `period_end` de
+  uma importação = **parcial**; dia que nenhuma importação cobriu = **ausente**. Sem linha num dia importado = zero real.
+- Variação só quando os DOIS períodos estão importados por completo; % só com base ≠ 0; razão sem denominador = `null`.
+- Resultado: Google = coluna Conversões da conta; Meta = `lead` (objetivo cadastro) ou `purchase` (objetivo vendas); outros
+  objetivos ficam **sem resultado** (o "resultado" do Ads Manager depende da otimização do conjunto e não é importado).
+  Totais de plataforma só somam resultados quando todas as campanhas têm a mesma definição. Nada soma Google + Meta nem
+  moedas diferentes; campanha com mais de uma moeda fica fora dos totais e sem comparação.
+- Meta: clique = clique no link (CTR/CPC de link), como já era no grão campanha.
+
+**Dados novos — níveis 2 e 3.** Tabela `fact_ad_entity_daily` (migração **0005**, só `CREATE TABLE` + índices; gerada com
+`db:generate`, **não aplicada** em nenhum banco real). Streams **opcionais** nos conectores existentes (sem nova
+integração, sem novo escopo OAuth): Google `ad_group_daily` (`FROM ad_group`) e `ad_daily` (`FROM ad_group_ad`); Meta
+`adset_daily` e `ad_daily` (`level=adset|ad` na mesma Insights). `runSync` roda os opcionais depois do de campanha, **só se a
+tabela existir** (`to_regclass`), com janela própria (`detailWindowStart`: histórico completo na 1ª vez, depois retoma do
+nível mais atrasado − restatement); falha neles **não derruba** o sync: o run fica `partial` com
+`sync_runs.error = "detalhe por grupo/anúncio: …"` e a área Campanhas mostra o aviso. Antes da 0005 a página de campanha
+mostra "migração pendente" e a de grupo responde 404. Em Conexões, o aviso de importação `partial` do Google Ads e do
+Meta Ads (cartão e botão) passou a mostrar esse motivo em vez de "limite de linhas".
+
+**Segurança.** Toda leitura em `server/campaigns/read.ts` é escopada pelo `workspace_id` da sessão (`requireWorkspace`);
+ids da URL só filtram dentro do workspace (id de outro workspace → 404). Nenhum token vai ao cliente.
+
+**Validação (2026-10-21).** `pnpm test` → **1322 passam, 38 opt-in pulados, 0 falham** (64 novos: período/cobertura,
+métricas, composição, streams de detalhe; 1 teste existente ajustado: `ad_daily` deixou de ser stream desconhecido na
+Meta). `typecheck`, `lint`, `build` limpos; `db:generate` sem drift depois da 0005. Verificação manual num **Postgres 16
+local descartável** (migrações 0000–0004, depois 0005; dados sintéticos de 2 workspaces): consultas da visão geral, do
+detalhe e do grupo, isolamento entre workspaces, Meta parcial, Performance Max, filtro inválido; telas renderizadas com
+Playwright sem erros de console. **Nenhuma chamada real ao Google Ads ou à Meta foi feita**: os streams de detalhe foram
+testados com respostas simuladas.
+
+**Pendências antes de produção.** (i) Aplicar a 0005 em produção (com autorização) e rodar "Importar dados" do Google Ads
+para trazer o detalhe (o 1º sync puxa até 180 dias de grupos e anúncios — mais chamadas e mais `raw_records`); (ii)
+validar a GAQL de `ad_group`/`ad_group_ad` e os níveis da Meta contra as APIs reais; (iii) Meta ainda sem app conectado;
+(iv) status da campanha na Meta não é importado (filtro de status vale só para o Google); (v) campanhas de uma conta
+anterior à troca de conta ficam sob a mesma conexão sem a conta de origem na tabela de campanha (`fact_ad_entity_daily`
+já guarda `account_id`); (vi) Performance Max: grupos de recursos não importados; (vii) `formatDateRange` (Diagnóstico)
+mostra só o mês final em períodos que cruzam meses — a área Campanhas usa `formatDateSpan`.

@@ -53,7 +53,9 @@ export function GoogleAdsSyncButton({ disabled }: { disabled?: boolean }) {
       {outcome && outcome.status !== "failed" ? (
         <p className="text-xs text-emerald-700">
           {outcome.status === "partial"
-            ? "Parcial (teto de linhas atingido): "
+            ? outcome.error
+              ? `Parcial (${outcome.error}): `
+              : "Parcial (teto de linhas atingido): "
             : "Concluído: "}
           {outcome.rowsWritten} linha(s) gravada(s), {outcome.rowsIn} lida(s) ·{" "}
           {outcome.periodStart} a {outcome.periodEnd}

@@ -1,10 +1,11 @@
 /**
  * Extração do Meta Ads via Marketing API Insights.
  *
- * `GET /{act_id}/insights` com `level=campaign` e `time_increment=1` — grão campanha ×
- * dia, o MESMO do Google Ads (INV-13: sem conjunto de anúncios, anúncio, posicionamento
- * nem demografia). Um `RawRecord` = uma página de resultados, append-only em
- * `raw_records` e replayável.
+ * `GET /{act_id}/insights` com `time_increment=1`: `level=campaign` (stream obrigatório,
+ * grão campanha × dia, o MESMO do Google Ads) e, desde a área Campanhas (Fase 1), os
+ * streams OPCIONAIS de detalhe `level=adset` (conjunto × dia) e `level=ad` (anúncio ×
+ * dia) — ainda sem posicionamento nem demografia. Um `RawRecord` = uma página de
+ * resultados, append-only em `raw_records` e replayável.
  *
  * Decisões:
  *  - o período é fatiado em janelas de 31 dias: o Insights recusa consultas grandes
@@ -48,6 +49,31 @@ const FIELDS = [
   "action_values",
 ].join(",");
 
+/** Campos extras dos níveis de detalhe (alcance/frequência ficam de fora: não são aditivos). */
+const DETAIL_BASE = [
+  "account_id",
+  "campaign_id",
+  "adset_id",
+  "adset_name",
+  "objective",
+  "date_start",
+  "date_stop",
+  "account_currency",
+  "impressions",
+  "clicks",
+  "inline_link_clicks",
+  "spend",
+  "actions",
+  "action_values",
+];
+
+/** stream → nível do Insights e campos. */
+const LEVELS: Record<string, { level: string; fields: string }> = {
+  campaign_daily: { level: "campaign", fields: FIELDS },
+  adset_daily: { level: "adset", fields: DETAIL_BASE.join(",") },
+  ad_daily: { level: "ad", fields: [...DETAIL_BASE, "ad_id", "ad_name"].join(",") },
+};
+
 /** `act_123456789` → caminho do edge de Insights. Rejeita qualquer outra forma. */
 export function insightsPath(externalId: string): string {
   if (!/^act_\d+$/.test(externalId)) {
@@ -80,7 +106,8 @@ export function sanitizePage(payload: unknown): unknown {
 }
 
 export async function* pull(args: PullArgs): AsyncIterable<RawRecord> {
-  if (args.stream !== "campaign_daily") {
+  const spec = LEVELS[args.stream];
+  if (!spec) {
     throw new Error(`Stream desconhecido no conector Meta Ads: ${args.stream}`);
   }
 
@@ -95,10 +122,10 @@ export async function* pull(args: PullArgs): AsyncIterable<RawRecord> {
       const payload = await metaFetch(path, {
         accessToken: args.access.accessToken,
         params: {
-          level: "campaign",
+          level: spec.level,
           time_increment: "1",
           time_range: JSON.stringify({ since: win.since, until: win.until }),
-          fields: FIELDS,
+          fields: spec.fields,
           limit: String(PAGE_LIMIT),
           ...(after ? { after } : {}),
         },
@@ -109,7 +136,7 @@ export async function* pull(args: PullArgs): AsyncIterable<RawRecord> {
 
       const safe = sanitizePage(payload);
       yield {
-        stream: "campaign_daily",
+        stream: args.stream,
         externalId: `${args.account.externalId}:${win.since}:${win.until}:${pageNo}`,
         occurredOn: null,
         payload: safe,

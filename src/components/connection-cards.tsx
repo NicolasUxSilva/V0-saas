@@ -38,6 +38,7 @@ import { PropertyPicker } from "@/components/property-picker";
 import { RdStationSyncButton } from "@/components/rd-station-sync-button";
 import { PartialState } from "@/components/states";
 import { SyncButton } from "@/components/sync-button";
+import { DETAIL_ERROR_PREFIX } from "@/server/sync/detail-window";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -284,7 +285,7 @@ export function GoogleAdsConnectionCard({
           </div>
         ) : null}
         {recentSyncRuns[0]?.status === "partial" ? (
-          <PartialState description="A última importação atingiu o limite de linhas e ficou parcial. Rode 'Importar dados' de novo para completar o período." />
+          <PartialState description={partialDescription(recentSyncRuns[0].error)} />
         ) : null}
 
         <GoogleAdsAccountPicker accounts={accounts} />
@@ -567,6 +568,17 @@ export function RdStationCrmConnectionCard({
 const DAY_MS = 86_400_000;
 
 /** Dias inteiros até o token expirar (arredondado para cima); negativo/zero = já expirou. */
+/**
+ * Mídia paga: `partial` também pode ser "campanhas importadas, detalhe por grupo/anúncio
+ * falhou" (streams opcionais — ver `run-sync`). O motivo vem em `sync_runs.error`.
+ */
+function partialDescription(error: string | null): string {
+  if (error?.startsWith(DETAIL_ERROR_PREFIX)) {
+    return `A última importação trouxe as campanhas, mas falhou no detalhe por grupo/anúncio (${error.slice(DETAIL_ERROR_PREFIX.length)}). Rode 'Importar dados' de novo para completar.`;
+  }
+  return "A última importação atingiu o limite de linhas e ficou parcial. Rode 'Importar dados' de novo para completar o período.";
+}
+
 export function daysUntilExpiry(expiresAt: Date | null, now: Date = new Date()): number | null {
   if (!expiresAt) return null;
   // `|| 0` troca o -0 de `Math.ceil` (acesso expirado há menos de um dia) por 0
@@ -642,7 +654,7 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
           </div>
         ) : null}
         {recentSyncRuns[0]?.status === "partial" ? (
-          <PartialState description="A última importação atingiu o limite de linhas e ficou parcial. Rode 'Importar dados' de novo para completar o período." />
+          <PartialState description={partialDescription(recentSyncRuns[0].error)} />
         ) : null}
 
         <MetaAdsAccountPicker accounts={accounts} />

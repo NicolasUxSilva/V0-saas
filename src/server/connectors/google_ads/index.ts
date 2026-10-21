@@ -1,8 +1,9 @@
 /**
  * Conector Google Ads completo (G2 auth + discovery · G3 extract + mapping).
  *
- * Grão campanha × dia (INV-13). Escreve em `fact_ad_performance_daily` via
- * `CanonicalBatch { target: "ad_performance" }`.
+ * Grão campanha × dia → `fact_ad_performance_daily` (`target: "ad_performance"`).
+ * Detalhe opcional (área Campanhas): grupo × dia e anúncio × dia →
+ * `fact_ad_entity_daily` (`target: "ad_entity"`).
  */
 import type {
   Connector,
@@ -30,6 +31,8 @@ const meta: ConnectorMeta = {
 
 const streams: readonly StreamDef[] = [
   { id: "campaign_daily", label: "Desempenho de campanha por dia" },
+  { id: "ad_group_daily", label: "Desempenho de grupo de anúncios por dia", optional: true },
+  { id: "ad_daily", label: "Desempenho de anúncio por dia", optional: true },
 ];
 
 export const googleAdsConnector: Connector = {

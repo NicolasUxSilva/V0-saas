@@ -19,8 +19,15 @@ const actionStat = z.object({
 });
 
 export const insightRowSchema = z.object({
+  account_id: z.string().optional(),
   campaign_id: z.string().optional(),
   campaign_name: z.string().optional(),
+  /** só nos níveis `adset` e `ad` */
+  adset_id: z.string().optional(),
+  adset_name: z.string().optional(),
+  /** só no nível `ad` */
+  ad_id: z.string().optional(),
+  ad_name: z.string().optional(),
   objective: z.string().optional(),
   /** "YYYY-MM-DD" no fuso da conta de anúncios */
   date_start: z.string().optional(),
@@ -70,4 +77,8 @@ export const adAccountsPageSchema = z.object({
 });
 
 /** Streams do conector Meta Ads e seus schemas. */
-export const schemas = { campaign_daily: insightsPageSchema } as const;
+export const schemas = {
+  campaign_daily: insightsPageSchema,
+  adset_daily: insightsPageSchema,
+  ad_daily: insightsPageSchema,
+} as const;

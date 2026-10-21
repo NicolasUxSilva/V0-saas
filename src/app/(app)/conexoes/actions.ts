@@ -148,6 +148,7 @@ export async function importarDadosGoogleAds(): Promise<SyncResult> {
   // desacoplamento p/ nível-workspace é o G4). Reflete nas duas telas.
   revalidatePath("/conexoes");
   revalidatePath("/diagnostico");
+  revalidatePath("/campanhas", "layout");
   return result;
 }
 
@@ -199,6 +200,7 @@ export async function importarDadosMetaAds(): Promise<SyncResult> {
 
   revalidatePath("/conexoes");
   revalidatePath("/diagnostico");
+  revalidatePath("/campanhas", "layout");
   return result;
 }
 

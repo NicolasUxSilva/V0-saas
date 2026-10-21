@@ -28,6 +28,7 @@
 import { createHash } from "node:crypto";
 
 import type {
+  CanonicalAdEntityRow,
   CanonicalAdPerfRow,
   CanonicalBatch,
   RawRecord,
@@ -88,7 +89,87 @@ function rowHash(r: Omit<CanonicalAdPerfRow, "sourceHash">): string {
   return createHash("sha256").update(JSON.stringify(key)).digest("hex");
 }
 
+/** Hash da chave natural + valores de uma linha de detalhe. */
+function entityHash(r: Omit<CanonicalAdEntityRow, "sourceHash">): string {
+  const d = r.dims ?? {};
+  const key = [
+    r.level,
+    r.date,
+    r.accountId,
+    r.campaignId,
+    r.adGroupId,
+    r.adGroupName,
+    r.adId,
+    r.adName,
+    r.impressions,
+    r.clicks,
+    r.cost,
+    r.conversions,
+    r.conversionValue,
+    r.currency,
+    d.objective ?? null,
+    d.allClicks ?? null,
+    JSON.stringify(d.conversionActions ?? {}),
+  ];
+  return createHash("sha256").update(JSON.stringify(key)).digest("hex");
+}
+
+/**
+ * Níveis de detalhe → `ad_entity`. `adset_daily`: conjunto de anúncios × dia (o
+ * `adGroupId` é o `adset_id` — a hierarquia é a da Meta, só o nome da coluna é comum);
+ * `ad_daily`: anúncio × dia, com o conjunto junto. Mesmas definições do grão campanha:
+ * clique = clique no link; conversões = lead + compra + cadastro, por tipo em `dims`.
+ * A Insights não traz status: fica "" (nunca inventado).
+ */
+function mapEntities(level: "ad_group" | "ad", raw: RawRecord): CanonicalBatch {
+  const page = insightsPageSchema.parse(raw.payload);
+
+  const rows: CanonicalAdEntityRow[] = (page.data ?? []).map((row) => {
+    const campaignId = row.campaign_id;
+    const adGroupId = row.adset_id;
+    const adId = level === "ad" ? (row.ad_id ?? "") : "";
+    const date = row.date_start;
+    if (!campaignId || !adGroupId || (level === "ad" && !adId) || !date) {
+      throw new Error(
+        "Meta Ads: linha de detalhe sem campaign_id, adset_id, ad_id ou date_start — resposta fora do contrato.",
+      );
+    }
+
+    const conversionActions = actionsByType(row.actions, META_CONVERSION_ACTION_TYPES);
+    const valueActions = actionsByType(row.action_values, META_VALUE_ACTION_TYPES);
+
+    const base = {
+      level,
+      date,
+      accountId: row.account_id ? `act_${row.account_id.replace(/^act_/, "")}` : "",
+      campaignId,
+      adGroupId,
+      adGroupName: row.adset_name?.trim() ?? "",
+      adId,
+      adName: level === "ad" ? (row.ad_name?.trim() ?? "") : "",
+      status: "",
+      entityType: "",
+      impressions: toInt(row.impressions),
+      clicks: toInt(row.inline_link_clicks),
+      cost: round4(toNum(row.spend)),
+      conversions: sumValues(conversionActions),
+      conversionValue: sumValues(valueActions),
+      currency: row.account_currency ?? null,
+      dims: {
+        objective: row.objective ?? null,
+        allClicks: toInt(row.clicks),
+        conversionActions,
+      } as Record<string, unknown>,
+    };
+    return { ...base, sourceHash: entityHash(base) };
+  });
+
+  return { target: "ad_entity", rows };
+}
+
 export function mapToCanonical(stream: string, raw: RawRecord): CanonicalBatch {
+  if (stream === "adset_daily") return mapEntities("ad_group", raw);
+  if (stream === "ad_daily") return mapEntities("ad", raw);
   if (stream !== "campaign_daily") {
     return { target: "ad_performance", rows: [] };
   }

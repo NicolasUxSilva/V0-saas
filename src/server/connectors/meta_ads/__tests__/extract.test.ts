@@ -161,7 +161,7 @@ describe("pull", () => {
 
   it("stream desconhecido e conta inválida falham antes de qualquer chamada", async () => {
     const fetchFn = stubFetch();
-    await expect(drain(pull(args({ stream: "ad_daily" })))).rejects.toThrow(/Stream desconhecido/);
+    await expect(drain(pull(args({ stream: "keyword_daily" })))).rejects.toThrow(/Stream desconhecido/);
     await expect(drain(pull(args({ account: { externalId: "123", timezone: null, currency: null } })))).rejects.toThrow(
       /Conta do Meta Ads inválida/,
     );

@@ -117,6 +117,40 @@ export interface CanonicalAdPerfRow {
 }
 
 /**
+ * Linha canônica dos níveis INFERIORES de uma campanha (área Campanhas · Fase 1):
+ * grupo de anúncios (Google) / conjunto de anúncios (Meta) — `level: "ad_group"` — e
+ * anúncio — `level: "ad"`. Destino: `fact_ad_entity_daily`. Nunca vai para
+ * `fact_ad_performance_daily` (lá o grão é campanha × dia e somar níveis dobraria os
+ * totais). A hierarquia é a do provedor; nada é inventado para "igualar" plataformas.
+ */
+export interface CanonicalAdEntityRow {
+  level: "ad_group" | "ad";
+  date: string; // "YYYY-MM-DD" no fuso da conta
+  /** conta de origem da linha: "customers/<id>" (Google) · "act_<id>" (Meta) */
+  accountId: string;
+  campaignId: string;
+  /** `ad_group.id` (Google) · `adset_id` (Meta) */
+  adGroupId: string;
+  adGroupName: string;
+  /** "" nas linhas de nível `ad_group` */
+  adId: string;
+  adName: string;
+  /** status da entidade da linha; "" quando a fonte não informa (Meta Insights) */
+  status: string;
+  /** tipo da entidade (tipo do grupo / do anúncio no Google); "" quando não há */
+  entityType: string;
+  impressions: number;
+  /** Google: cliques · Meta: cliques NO LINK (mesma regra de `CanonicalAdPerfRow`) */
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionValue: number;
+  currency: string | null;
+  dims: Record<string, unknown> | null;
+  sourceHash: string;
+}
+
+/**
  * Linha canônica de ativo de conversão (RD Station Marketing, bloco RD-1).
  * Destino: `fact_conversion_assets_daily`. Grão dia × ativo (landing page /
  * formulário / pop-up) — `GET /platform/analytics/conversions`, disponível nos
@@ -170,18 +204,26 @@ export interface CanonicalDealRow {
  * Lote canônico produzido por `mapToCanonical` — **nomeia a fact table destino**
  * (`normalize` roteia por `target`). `traffic` → `fact_traffic_daily` (GA4);
  * `ad_performance` → `fact_ad_performance_daily` (Google Ads, Meta Ads);
+ * `ad_entity` → `fact_ad_entity_daily` (grupos/conjuntos e anúncios — Google e Meta);
  * `conversion_assets` → `fact_conversion_assets_daily` (RD Station Marketing);
  * `opportunities` → `fact_deals` (RD Station CRM).
  */
 export type CanonicalBatch =
   | { target: "traffic"; rows: CanonicalTrafficRow[] }
   | { target: "ad_performance"; rows: CanonicalAdPerfRow[] }
+  | { target: "ad_entity"; rows: CanonicalAdEntityRow[] }
   | { target: "conversion_assets"; rows: CanonicalConversionAssetRow[] }
   | { target: "opportunities"; rows: CanonicalDealRow[] };
 
 export interface StreamDef {
   id: string; // ex.: "report_daily"
   label: string;
+  /**
+   * `true` = stream de DETALHE (níveis abaixo da campanha): roda depois dos obrigatórios
+   * e, se falhar, NÃO derruba o sync — os dados de campanha já gravados continuam
+   * valendo e a importação termina `partial`, com o motivo. Padrão: obrigatório.
+   */
+  optional?: boolean;
 }
 
 export interface PullArgs {

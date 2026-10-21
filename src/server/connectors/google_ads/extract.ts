@@ -1,7 +1,9 @@
 /**
  * Extração do Google Ads via `GoogleAdsService.search` (bloco G3).
  *
- * GAQL campanha × dia (INV-13 — sem ad_group / keyword / query). Um `RawRecord`
+ * GAQL campanha × dia (stream obrigatório) e, desde a área Campanhas (Fase 1), os
+ * streams OPCIONAIS de detalhe: grupo de anúncios × dia (`FROM ad_group`) e anúncio ×
+ * dia (`FROM ad_group_ad`) — ainda sem keyword / search term. Um `RawRecord`
  * = uma página de resultados (JSON inteiro), append-only em `raw_records` e
  * replayável. Paginação por `nextPageToken`; a janela e o customer vêm de quem
  * chama (`run-sync` → conta selecionada em `connection_properties`).
@@ -14,7 +16,7 @@ import { createHash } from "node:crypto";
 import type { PullArgs, RawRecord } from "@/server/connectors/types";
 
 import { adsFetch } from "./http";
-import { adsSearchPageSchema } from "./schema";
+import { adsEntitySearchPageSchema, adsSearchPageSchema } from "./schema";
 
 // Tamanho de página: fixo em 10.000 linhas pela própria API. NÃO enviar `pageSize`
 // no corpo — o campo `page_size` está deprecado e a Google Ads API devolve
@@ -49,13 +51,58 @@ const SELECT_FIELDS = [
   "metrics.search_rank_lost_impression_share",
 ].join(", ");
 
-function buildQuery(since: string, until: string): string {
+/** Métricas comuns aos streams de detalhe (as mesmas do grão campanha, sem leilão). */
+const DETAIL_METRICS = [
+  "segments.date",
+  "metrics.impressions",
+  "metrics.clicks",
+  "metrics.cost_micros",
+  "metrics.conversions",
+  "metrics.conversions_value",
+];
+
+/** Grupo de anúncios × dia. */
+const AD_GROUP_FIELDS = [
+  "customer.id",
+  "customer.currency_code",
+  "campaign.id",
+  "ad_group.id",
+  "ad_group.name",
+  "ad_group.status",
+  "ad_group.type",
+  ...DETAIL_METRICS,
+].join(", ");
+
+/** Anúncio × dia (o grupo vem junto para preservar a hierarquia). */
+const AD_FIELDS = [
+  "customer.id",
+  "customer.currency_code",
+  "campaign.id",
+  "ad_group.id",
+  "ad_group.name",
+  "ad_group_ad.ad.id",
+  "ad_group_ad.ad.name",
+  "ad_group_ad.ad.type",
+  "ad_group_ad.status",
+  ...DETAIL_METRICS,
+].join(", ");
+
+/** stream → (campos, recurso, ordenação). */
+const QUERIES: Record<string, { fields: string; from: string; orderBy: string }> = {
+  campaign_daily: { fields: SELECT_FIELDS, from: "campaign", orderBy: "campaign.id" },
+  ad_group_daily: { fields: AD_GROUP_FIELDS, from: "ad_group", orderBy: "ad_group.id" },
+  ad_daily: { fields: AD_FIELDS, from: "ad_group_ad", orderBy: "ad_group_ad.ad.id" },
+};
+
+export function buildQuery(stream: string, since: string, until: string): string {
+  const q = QUERIES[stream];
+  if (!q) throw new Error(`Stream desconhecido no conector Google Ads: ${stream}`);
   // `since`/`until` são "YYYY-MM-DD" derivados no fuso da conta (run-sync);
   // não vêm de input do usuário.
   return (
-    `SELECT ${SELECT_FIELDS} FROM campaign ` +
+    `SELECT ${q.fields} FROM ${q.from} ` +
     `WHERE segments.date BETWEEN '${since}' AND '${until}' ` +
-    `ORDER BY segments.date ASC, campaign.id ASC`
+    `ORDER BY segments.date ASC, ${q.orderBy} ASC`
   );
 }
 
@@ -72,16 +119,12 @@ function customerIdFromExternalId(externalId: string): string {
 }
 
 export async function* pull(args: PullArgs): AsyncIterable<RawRecord> {
-  if (args.stream !== "campaign_daily") {
-    throw new Error(`Stream desconhecido no conector Google Ads: ${args.stream}`);
-  }
-
+  const query = buildQuery(args.stream, args.since, args.until);
   const customerId = customerIdFromExternalId(args.account.externalId);
   const loginCustomerId =
     typeof args.access.meta?.loginCustomerId === "string"
       ? args.access.meta.loginCustomerId
       : undefined;
-  const query = buildQuery(args.since, args.until);
 
   let pageToken: string | undefined;
   let fetched = 0;
@@ -101,11 +144,13 @@ export async function* pull(args: PullArgs): AsyncIterable<RawRecord> {
       loginCustomerId,
     );
 
-    const page = adsSearchPageSchema.parse(payload);
+    const page = (
+      args.stream === "campaign_daily" ? adsSearchPageSchema : adsEntitySearchPageSchema
+    ).parse(payload);
     fetched += page.results?.length ?? 0;
 
     yield {
-      stream: "campaign_daily",
+      stream: args.stream,
       externalId: `customers/${customerId}:${args.since}:${args.until}:${pageNo}`,
       occurredOn: null,
       payload,

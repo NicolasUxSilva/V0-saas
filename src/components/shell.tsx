@@ -6,7 +6,7 @@
  * Deliberadamente enxuto — sem identidade visual, sem tema escuro. Prioridade:
  * legibilidade e hierarquia. O conteúdo real de cada tela vem nos blocos A4+.
  */
-import { LayoutDashboard, LogOut, Plug, Sparkles } from "lucide-react";
+import { LayoutDashboard, LogOut, Megaphone, Plug, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/diagnostico", label: "Diagnóstico", icon: LayoutDashboard },
+  { href: "/campanhas", label: "Campanhas", icon: Megaphone },
   { href: "/advisor", label: "Advisor", icon: Sparkles },
   { href: "/conexoes", label: "Conexões", icon: Plug },
 ] as const;

@@ -2,9 +2,9 @@
  * Conector Meta Ads (Marketing API): OAuth + descoberta de contas de anúncios + extração
  * de Insights + mapeamento canônico.
  *
- * Grão campanha × dia (INV-13). Escreve em `fact_ad_performance_daily`
- * (`platform = 'meta_ads'`) via `CanonicalBatch { target: "ad_performance" }` — a MESMA
- * tabela do Google Ads, separada pela plataforma. Somente leitura (`ads_read`).
+ * Grão campanha × dia → `fact_ad_performance_daily` (`platform = 'meta_ads'`, a MESMA
+ * tabela do Google Ads, separada pela plataforma). Detalhe opcional (área Campanhas):
+ * conjunto × dia e anúncio × dia → `fact_ad_entity_daily`. Somente leitura (`ads_read`).
  */
 import type { Connector, ConnectorMeta, StreamDef } from "@/server/connectors/types";
 
@@ -29,6 +29,8 @@ const meta: ConnectorMeta = {
 
 const streams: readonly StreamDef[] = [
   { id: "campaign_daily", label: "Desempenho de campanha por dia" },
+  { id: "adset_daily", label: "Desempenho de conjunto de anúncios por dia", optional: true },
+  { id: "ad_daily", label: "Desempenho de anúncio por dia", optional: true },
 ];
 
 export const metaAdsConnector: Connector = {

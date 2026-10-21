@@ -50,6 +50,42 @@ const rowSchema = z.object({
   metrics: metricsSchema.optional(),
 });
 
+/**
+ * Linha dos streams de detalhe (`FROM ad_group` / `FROM ad_group_ad`). Os campos de
+ * campanha/custo/data são os mesmos; entram o grupo e, no nível de anúncio, o anúncio.
+ */
+const entityRowSchema = rowSchema.extend({
+  adGroup: z
+    .object({
+      id: z.string().optional(),
+      name: z.string().optional(),
+      status: z.string().optional(),
+      type: z.string().optional(),
+    })
+    .optional(),
+  adGroupAd: z
+    .object({
+      status: z.string().optional(),
+      ad: z
+        .object({
+          id: z.string().optional(),
+          name: z.string().optional(),
+          type: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
+
+/** Uma página de `googleAds:search` dos streams de detalhe (grupo × dia, anúncio × dia). */
+export const adsEntitySearchPageSchema = z.object({
+  results: z.array(entityRowSchema).optional(),
+  nextPageToken: z.string().optional(),
+  totalResultsCount: wireNumber.optional(),
+});
+
+export type AdsEntitySearchRow = z.infer<typeof entityRowSchema>;
+
 /** Uma página da resposta de `googleAds:search` (campanha × dia). */
 export const adsSearchPageSchema = z.object({
   results: z.array(rowSchema).optional(),
@@ -61,4 +97,8 @@ export type AdsSearchPage = z.infer<typeof adsSearchPageSchema>;
 export type AdsSearchRow = z.infer<typeof rowSchema>;
 
 /** Streams do conector Google Ads e seus schemas. */
-export const schemas = { campaign_daily: adsSearchPageSchema } as const;
+export const schemas = {
+  campaign_daily: adsSearchPageSchema,
+  ad_group_daily: adsEntitySearchPageSchema,
+  ad_daily: adsEntitySearchPageSchema,
+} as const;

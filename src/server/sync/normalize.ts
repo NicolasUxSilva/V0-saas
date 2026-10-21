@@ -3,7 +3,8 @@
  *
  * `normalizeBatch` roteia pelo `CanonicalBatch.target`:
  *   - `traffic`           → `fact_traffic_daily`            (GA4)
- *   - `ad_performance`    → `fact_ad_performance_daily`     (Google Ads)
+ *   - `ad_performance`    → `fact_ad_performance_daily`     (Google Ads, Meta Ads)
+ *   - `ad_entity`         → `fact_ad_entity_daily`          (grupos/conjuntos e anúncios)
  *   - `conversion_assets` → `fact_conversion_assets_daily`  (RD Station Marketing)
  *   - `opportunities`     → `fact_deals`                    (RD Station CRM)
  *
@@ -15,6 +16,7 @@
 import { sql } from "drizzle-orm";
 
 import type {
+  CanonicalAdEntityRow,
   CanonicalAdPerfRow,
   CanonicalBatch,
   CanonicalConversionAssetRow,
@@ -23,6 +25,7 @@ import type {
 } from "@/server/connectors/types";
 import { db } from "@/server/db";
 import {
+  factAdEntityDaily,
   factAdPerformanceDaily,
   factConversionAssetsDaily,
   factDeals,
@@ -49,6 +52,8 @@ export async function normalizeBatch(
         platform,
         batch.rows,
       );
+    case "ad_entity":
+      return upsertFactAdEntity(workspaceId, connectionId, platform, batch.rows);
     case "conversion_assets":
       return upsertFactConversionAssets(
         workspaceId,
@@ -197,6 +202,84 @@ async function upsertFactAdPerformance(
         setWhere: sql`${factAdPerformanceDaily.sourceHash} is distinct from excluded.source_hash`,
       })
       .returning({ id: factAdPerformanceDaily.id });
+
+    written += updated.length;
+  }
+
+  return written;
+}
+
+/**
+ * Upsert em `fact_ad_entity_daily` (grupos/conjuntos e anúncios · área Campanhas).
+ * Isolada. Chave natural: (connection_id, platform, level, date, campaign_id,
+ * ad_group_id, ad_id).
+ */
+async function upsertFactAdEntity(
+  workspaceId: string,
+  connectionId: string,
+  platform: string,
+  rows: CanonicalAdEntityRow[],
+): Promise<number> {
+  let written = 0;
+
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const chunk = rows.slice(i, i + BATCH);
+    const values = chunk.map((r) => ({
+      workspaceId,
+      connectionId,
+      platform,
+      accountId: r.accountId,
+      level: r.level,
+      date: r.date,
+      campaignId: r.campaignId,
+      adGroupId: r.adGroupId,
+      adGroupName: r.adGroupName,
+      adId: r.adId,
+      adName: r.adName,
+      status: r.status,
+      entityType: r.entityType,
+      impressions: r.impressions,
+      clicks: r.clicks,
+      cost: r.cost,
+      conversions: r.conversions,
+      conversionValue: r.conversionValue,
+      currency: r.currency,
+      dims: r.dims,
+      sourceHash: r.sourceHash,
+    }));
+
+    const updated = await db
+      .insert(factAdEntityDaily)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          factAdEntityDaily.connectionId,
+          factAdEntityDaily.platform,
+          factAdEntityDaily.level,
+          factAdEntityDaily.date,
+          factAdEntityDaily.campaignId,
+          factAdEntityDaily.adGroupId,
+          factAdEntityDaily.adId,
+        ],
+        set: {
+          accountId: sql`excluded.account_id`,
+          adGroupName: sql`excluded.ad_group_name`,
+          adName: sql`excluded.ad_name`,
+          status: sql`excluded.status`,
+          entityType: sql`excluded.entity_type`,
+          impressions: sql`excluded.impressions`,
+          clicks: sql`excluded.clicks`,
+          cost: sql`excluded.cost`,
+          conversions: sql`excluded.conversions`,
+          conversionValue: sql`excluded.conversion_value`,
+          currency: sql`excluded.currency`,
+          dims: sql`excluded.dims`,
+          sourceHash: sql`excluded.source_hash`,
+          updatedAt: sql`now()`,
+        },
+        setWhere: sql`${factAdEntityDaily.sourceHash} is distinct from excluded.source_hash`,
+      })
+      .returning({ id: factAdEntityDaily.id });
 
     written += updated.length;
   }

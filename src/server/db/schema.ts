@@ -400,6 +400,85 @@ export const factAdPerformanceDaily = pgTable(
 );
 
 /**
+ * Desempenho dos NÍVEIS INFERIORES da campanha (área Campanhas · Fase 1): grupo de
+ * anúncios (Google Ads) / conjunto de anúncios (Meta Ads) e anúncio, por dia.
+ *
+ * Tabela PRÓPRIA, separada de `fact_ad_performance_daily` de propósito: tudo o que já
+ * lê o grão campanha × dia (motor, Cross-source, Diagnóstico, Advisor) continua lendo
+ * só aquela tabela — misturar níveis lá dobraria os totais. Aqui não se soma nível com
+ * nível: `level` separa as linhas de grupo/conjunto (`adId = ''`) das de anúncio.
+ *
+ * A hierarquia é a do PROVEDOR: `adGroupId` é o `ad_group.id` no Google e o `adset_id`
+ * na Meta; o rótulo ("grupo" × "conjunto") fica na apresentação. `accountId` guarda a
+ * conta de origem de cada linha (`customers/<id>` · `act_<id>`).
+ *
+ * Mesmas regras das vizinhas: dinheiro `numeric`, moeda da conta sem conversão, data no
+ * fuso da conta, upsert idempotente por chave natural + `source_hash`.
+ */
+export const factAdEntityDaily = pgTable(
+  "fact_ad_entity_daily",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull(), // google_ads | meta_ads
+    accountId: text("account_id").notNull().default(""),
+    level: text("level").$type<"ad_group" | "ad">().notNull(),
+    date: date("date").notNull(), // no fuso da conta
+    campaignId: text("campaign_id").notNull(),
+    adGroupId: text("ad_group_id").notNull(),
+    adGroupName: text("ad_group_name").notNull().default(""),
+    // '' nas linhas de nível `ad_group`
+    adId: text("ad_id").notNull().default(""),
+    adName: text("ad_name").notNull().default(""),
+    // status da entidade da linha (grupo ou anúncio); '' quando a fonte não informa (Meta)
+    status: text("status").notNull().default(""),
+    // tipo da entidade (ex.: SEARCH_STANDARD, RESPONSIVE_SEARCH_AD); '' quando não há
+    entityType: text("entity_type").notNull().default(""),
+    impressions: bigint("impressions", { mode: "number" }).notNull().default(0),
+    clicks: bigint("clicks", { mode: "number" }).notNull().default(0),
+    cost: numeric("cost", { precision: 18, scale: 4, mode: "number" }).notNull(),
+    conversions: numeric("conversions", {
+      precision: 18,
+      scale: 4,
+      mode: "number",
+    }).notNull(),
+    conversionValue: numeric("conversion_value", {
+      precision: 18,
+      scale: 4,
+      mode: "number",
+    }).notNull(),
+    currency: text("currency"),
+    dims: jsonb("dims"),
+    sourceHash: text("source_hash").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("fact_ad_entity_daily_natural_uq").on(
+      t.connectionId,
+      t.platform,
+      t.level,
+      t.date,
+      t.campaignId,
+      t.adGroupId,
+      t.adId,
+    ),
+    index("fact_ad_entity_daily_workspace_campaign_idx").on(
+      t.workspaceId,
+      t.platform,
+      t.campaignId,
+      t.date,
+    ),
+  ],
+);
+
+/**
  * RD Station Marketing — Estatísticas dos Ativos de Conversão (bloco RD-1).
  * `GET /platform/analytics/conversions`, disponível nos planos Pro e Advanced
  * (a Estatísticas do Funil de Vendas, ricas em lead/oportunidade/venda, exige
@@ -660,3 +739,5 @@ export type Insight = typeof insights.$inferSelect;
 export type NewInsight = typeof insights.$inferInsert;
 export type CrossSourceInsightRow = typeof crossSourceInsights.$inferSelect;
 export type NewCrossSourceInsightRow = typeof crossSourceInsights.$inferInsert;
+export type FactAdEntityDaily = typeof factAdEntityDaily.$inferSelect;
+export type NewFactAdEntityDaily = typeof factAdEntityDaily.$inferInsert;

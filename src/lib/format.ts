@@ -100,6 +100,15 @@ export function formatDateRange(start: string, end: string): string {
   return `${day(s)} – ${day(e)} ${monthYear}`;
 }
 
+/**
+ * {start:"2026-09-23", end:"2026-10-20"} -> "23/09/2026 – 20/10/2026". Explícito em
+ * qualquer intervalo (inclusive os que cruzam mês ou ano), sem depender do fuso local.
+ */
+export function formatDateSpan(start: string, end: string): string {
+  const br = (iso: string) => iso.split("-").reverse().join("/");
+  return start === end ? br(start) : `${br(start)} – ${br(end)}`;
+}
+
 /** ISO -> "há 2 horas" / "há 3 dias" / "em 28/08/2026" (fallback > 30 dias) */
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {
   const then = new Date(iso);

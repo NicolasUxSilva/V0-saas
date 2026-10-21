@@ -36,6 +36,13 @@
       "when": 1791142818081,
       "tag": "0004_abandoned_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792577977347,
+      "tag": "0005_ad_entity_daily",
+      "breakpoints": true
     }
   ]
 }

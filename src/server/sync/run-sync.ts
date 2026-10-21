@@ -10,17 +10,31 @@
  * mesmo jeito. `runWorkspaceAnalysis` continua lendo só `fact_traffic_daily`
  * (GA4); dados de Ads em `fact_ad_performance_daily` não mudam o resultado —
  * isso é G5/G6.
+ *
+ * Streams OPCIONAIS (detalhe por grupo/conjunto e anúncio — área Campanhas): rodam
+ * depois dos obrigatórios, com janela própria (`detailWindowStart`), e só quando a
+ * tabela `fact_ad_entity_daily` existe (migração 0005). Falha num deles não derruba o
+ * sync: o run termina `partial` e o motivo vai para `sync_runs.error` com o prefixo
+ * `DETAIL_ERROR_PREFIX`. Antes da migração eles são simplesmente pulados.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { runWorkspaceAnalysis } from "@/server/analysis/engine";
 import { getConnector } from "@/server/connectors/registry";
 import { getValidAccessToken } from "@/server/connectors/shared/token";
 import { MAX_TOTAL_ROWS } from "@/server/connectors/ga4/extract";
 import { db } from "@/server/db";
-import { connectionProperties, connections, rawRecords, syncRuns } from "@/server/db/schema";
+import { tableExists } from "@/server/db/table-exists";
+import {
+  connectionProperties,
+  connections,
+  factAdEntityDaily,
+  rawRecords,
+  syncRuns,
+} from "@/server/db/schema";
 import { addDays, maxDate, todayInTimeZone } from "@/lib/dates";
 
+import { DETAIL_ERROR_PREFIX, detailWindowStart } from "./detail-window";
 import { normalizeBatch } from "./normalize";
 
 const HISTORY_DAYS = 180;
@@ -105,28 +119,29 @@ export async function runSync(input: {
     let rowsIn = 0;
     let rowsWritten = 0;
 
-    for (const stream of connector.streams) {
+    const account = {
+      externalId: property.externalId,
+      timezone: property.timezone,
+      currency: property.currency,
+    };
+    const pullStream = async (streamId: string, from: string): Promise<void> => {
       for await (const page of connector.pull({
         access: { accessToken },
-        account: {
-          externalId: property.externalId,
-          timezone: property.timezone,
-          currency: property.currency,
-        },
-        stream: stream.id,
-        since,
+        account,
+        stream: streamId,
+        since: from,
         until,
       })) {
         await db.insert(rawRecords).values({
           connectionId: conn.id,
           provider: conn.provider,
-          stream: stream.id,
+          stream: streamId,
           occurredOn: null,
           payload: page.payload,
           sourceHash: page.sourceHash,
         });
 
-        const batch = connector.mapToCanonical(stream.id, page);
+        const batch = connector.mapToCanonical(streamId, page);
         rowsIn += batch.rows.length;
         rowsWritten += await normalizeBatch(
           conn.workspaceId,
@@ -135,14 +150,39 @@ export async function runSync(input: {
           batch,
         );
       }
+    };
+
+    for (const stream of connector.streams.filter((s) => !s.optional)) {
+      await pullStream(stream.id, since);
+    }
+    const requiredRowsIn = rowsIn;
+
+    // ── detalhe (opcional): nunca derruba o que já foi gravado acima ──
+    let detailError: string | null = null;
+    const optionalStreams = connector.streams.filter((s) => s.optional);
+    if (optionalStreams.length > 0 && (await tableExists("fact_ad_entity_daily"))) {
+      try {
+        const detailSince = detailWindowStart({
+          since,
+          historyStart,
+          lastDates: await lastDetailDates(conn.id),
+          restatementDays,
+        });
+        for (const stream of optionalStreams) {
+          await pullStream(stream.id, detailSince);
+        }
+      } catch (e) {
+        detailError = e instanceof Error ? e.message : String(e);
+      }
     }
 
     const status: "success" | "partial" =
-      rowsIn >= MAX_TOTAL_ROWS ? "partial" : "success";
+      requiredRowsIn >= MAX_TOTAL_ROWS || detailError ? "partial" : "success";
+    const runError = detailError ? `${DETAIL_ERROR_PREFIX}${detailError}`.slice(0, 2000) : null;
 
     await db
       .update(syncRuns)
-      .set({ status, rowsIn, rowsWritten, finishedAt: new Date() })
+      .set({ status, rowsIn, rowsWritten, error: runError, finishedAt: new Date() })
       .where(eq(syncRuns.id, run.id));
     await db
       .update(connections)
@@ -170,7 +210,7 @@ export async function runSync(input: {
       rowsWritten,
       periodStart: since,
       periodEnd: until,
-      error: null,
+      error: runError,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -197,4 +237,18 @@ export async function runSync(input: {
       error: message,
     };
   }
+}
+
+/** Último dia gravado em cada nível de detalhe desta conexão (`null` = nenhum). */
+async function lastDetailDates(connectionId: string): Promise<(string | null)[]> {
+  const rows = await db
+    .select({
+      level: factAdEntityDaily.level,
+      last: sql<string | null>`max(${factAdEntityDaily.date})`,
+    })
+    .from(factAdEntityDaily)
+    .where(eq(factAdEntityDaily.connectionId, connectionId))
+    .groupBy(factAdEntityDaily.level);
+  const by = new Map(rows.map((r) => [r.level, r.last]));
+  return (["ad_group", "ad"] as const).map((level) => by.get(level) ?? null);
 }
