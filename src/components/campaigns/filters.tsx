@@ -7,10 +7,10 @@ import { buttonVariants } from "@/components/ui/button";
 import type { CampaignFilters } from "@/lib/campaigns";
 import { cn } from "@/lib/utils";
 
-const FIELD =
+export const FIELD =
   "h-8 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
       {label}
@@ -25,12 +25,15 @@ export function CampaignFiltersForm({
   statusOptions,
   showPlatform = true,
   showListOptions = true,
+  children,
 }: {
   action: string;
   filters: CampaignFilters;
   statusOptions: { value: string; label: string }[];
   showPlatform?: boolean;
   showListOptions?: boolean;
+  /** campos extras da página (ex.: filtros do diagnóstico), antes do botão */
+  children?: React.ReactNode;
 }) {
   return (
     <form method="get" action={action} className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
@@ -95,6 +98,7 @@ export function CampaignFiltersForm({
           Só investimento sem resultados
         </label>
       ) : null}
+      {children}
       <button type="submit" className={cn(buttonVariants({ size: "sm" }))}>
         Aplicar
       </button>

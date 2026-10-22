@@ -1,8 +1,10 @@
 import { Megaphone } from "lucide-react";
 import Link from "next/link";
 
+import { DiagnosticsDigest } from "@/components/campaigns/diagnostics-digest";
 import { CampaignFiltersForm } from "@/components/campaigns/filters";
 import { PlatformPanelCard } from "@/components/campaigns/platform-panel";
+import { CampaignsSectionNav } from "@/components/campaigns/section-nav";
 import { CampaignsTable } from "@/components/campaigns/tables";
 import { EmptyState } from "@/components/states";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,6 +28,7 @@ export default async function CampanhasPage(props: PageProps<"/campanhas">) {
 
   const anyConnected = view.panels.some((p) => p.source.health !== "not_connected");
   const anyCampaign = view.panels.some((p) => p.campaignCount > 0);
+  const shared = filtersToQuery(f, { page: 1, status: null, onlyCostWithoutResult: false, sort: "cost" });
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -36,6 +39,8 @@ export default async function CampanhasPage(props: PageProps<"/campanhas">) {
           resultado.
         </p>
       </div>
+
+      <CampaignsSectionNav active="list" query={shared} />
 
       <CampaignFiltersForm action="/campanhas" filters={f} statusOptions={view.statusOptions} />
 
@@ -58,6 +63,10 @@ export default async function CampanhasPage(props: PageProps<"/campanhas">) {
           <PlatformPanelCard key={p.platform} panel={p} compare={compare} />
         ))}
       </div>
+
+      {anyCampaign ? (
+        <DiagnosticsDigest title="Alertas do período" diagnostics={view.diagnostics} href={`/campanhas/diagnosticos${shared}`} />
+      ) : null}
 
       {!anyConnected ? (
         <EmptyState

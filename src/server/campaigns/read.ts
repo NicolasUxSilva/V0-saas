@@ -10,6 +10,7 @@
  */
 import { and, desc, eq, gte, inArray, lte, sql, type AnyColumn, type SQL } from "drizzle-orm";
 
+import type { CampaignDiagnostic } from "@/lib/campaign-diagnostics";
 import type {
   AdPlatform,
   CampaignDetail,
@@ -54,6 +55,7 @@ import {
   typeLabel,
   type Totals,
 } from "./metrics";
+import { diagnose, type DetailNode, type PlatformDiagnosticInput } from "./diagnostics/engine";
 import { filtersToQuery } from "./period";
 
 const ENTITY_TABLE = "fact_ad_entity_daily";
@@ -244,6 +246,7 @@ async function readCampaignAggregates(
       campaignId: f.campaignId,
       currencies: sql<string[]>`array_remove(array_agg(distinct ${f.currency}), null)`,
       hasNullCurrency: sql<boolean>`bool_or(${f.currency} is null)`,
+      objectives: sql<string[]>`array_remove(array_agg(distinct ${f.dims}->>'objective'), null)`,
       ...prefixed(windowSums(f, inCur), "c"),
       ...prefixed(windowSums(f, inPrev), "p"),
     })
@@ -274,6 +277,7 @@ async function readCampaignAggregates(
       hasNullCurrency: Boolean(s.hasNullCurrency),
       current: toTotals(splitWindows(s, "c")),
       previous: filters.previous ? toTotals(splitWindows(s, "p")) : null,
+      objectives: s.objectives ?? [],
     };
   });
 }
@@ -318,6 +322,7 @@ export async function readCampaignsOverview(input: {
     buildCampaignRow({ agg, panel: panels.find((p) => p.platform === agg.platform)!, filters }),
   );
   const page = filterSortPaginate(rows, filters);
+  const diagnostics = await diagnosticsFrom({ workspaceId, filters, facts, aggs, now });
 
   return {
     filters: { ...filters, page: Math.min(filters.page, page.pageCount) },
@@ -329,6 +334,7 @@ export async function readCampaignsOverview(input: {
     pageCount: page.pageCount,
     statusOptions: statusOptions(aggs),
     statusFilterExcludes: page.statusFilterExcludes,
+    diagnostics,
   };
 }
 
@@ -594,4 +600,116 @@ export async function readAdGroupDetail(input: {
 
 function emptySpan(): DetailSpan {
   return { detailFirst: null, detailLast: null, campaignFirst: null, campaignLast: null };
+}
+
+// ── diagnóstico (Fase 2) ──────────────────────────────────────────────
+
+/**
+ * Escopo de toda leitura de detalhe do diagnóstico: workspace da sessão + plataformas +
+ * intervalo, sempre como parâmetros (testado no SQL gerado).
+ */
+export function detailNodesScope(
+  workspaceId: string,
+  platforms: AdPlatform[],
+  range: { start: string; end: string },
+): SQL | undefined {
+  const e = factAdEntityDaily;
+  return and(
+    eq(e.workspaceId, workspaceId),
+    inArray(e.platform, platforms),
+    gte(e.date, range.start),
+    lte(e.date, range.end),
+  );
+}
+
+/** Todos os grupos/conjuntos e anúncios das plataformas, com somas por período (uma consulta). */
+async function readDetailNodes(
+  workspaceId: string,
+  platforms: AdPlatform[],
+  filters: CampaignFilters,
+): Promise<(DetailNode & { platform: AdPlatform })[]> {
+  const e = factAdEntityDaily;
+  const inCur = sql`${e.date} between ${filters.current.start} and ${filters.current.end}`;
+  const inPrev = filters.previous
+    ? sql`${e.date} between ${filters.previous.start} and ${filters.previous.end}`
+    : sql`false`;
+  const rows = await db
+    .select({
+      platform: e.platform,
+      level: e.level,
+      campaignId: e.campaignId,
+      adGroupId: e.adGroupId,
+      adId: e.adId,
+      adGroupName: sql<string>`(array_agg(${e.adGroupName} order by ${e.date} desc))[1]`,
+      adName: sql<string>`(array_agg(${e.adName} order by ${e.date} desc))[1]`,
+      status: sql<string>`(array_agg(${e.status} order by ${e.date} desc))[1]`,
+      ...prefixed(windowSums(e, inCur), "c"),
+      ...prefixed(windowSums(e, inPrev), "p"),
+    })
+    .from(e)
+    .where(detailNodesScope(workspaceId, platforms, rangeOf(filters)))
+    .groupBy(e.platform, e.level, e.campaignId, e.adGroupId, e.adId);
+
+  return rows.map((r) => ({
+    platform: r.platform as AdPlatform,
+    level: r.level,
+    campaignId: r.campaignId,
+    adGroupId: r.adGroupId,
+    adGroupName: r.adGroupName ?? "",
+    adId: r.adId,
+    name: (r.level === "ad" ? r.adName : r.adGroupName) ?? "",
+    status: r.status || null,
+    current: toTotals(splitWindows(r, "c")),
+    previous: filters.previous ? toTotals(splitWindows(r, "p")) : null,
+  }));
+}
+
+/**
+ * Diagnóstico das campanhas do workspace no período: os mesmos agregados da visão geral +
+ * o detalhe, entregues ao motor puro (`diagnostics/engine.ts`). Só leitura; nada é gravado.
+ */
+export async function readCampaignDiagnostics(input: {
+  workspaceId: string;
+  filters: CampaignFilters;
+  now: Date;
+}): Promise<CampaignDiagnostic[]> {
+  const { workspaceId, filters, now } = input;
+  const platforms = platformsOf(filters);
+  const [facts, aggs] = await Promise.all([
+    readPlatformFacts(workspaceId, platforms, rangeOf(filters), now),
+    readCampaignAggregates(workspaceId, platforms, filters),
+  ]);
+  return diagnosticsFrom({ workspaceId, filters, facts, aggs, now });
+}
+
+/** O motor sobre fatos e agregados JÁ lidos (a visão geral reaproveita os dela). */
+async function diagnosticsFrom(input: {
+  workspaceId: string;
+  filters: CampaignFilters;
+  facts: PlatformFacts[];
+  aggs: CampaignAggregate[];
+  now: Date;
+}): Promise<CampaignDiagnostic[]> {
+  const { workspaceId, filters, facts, aggs, now } = input;
+  const ready = await tableExists(ENTITY_TABLE);
+  const nodes = ready ? await readDetailNodes(workspaceId, platformsOf(filters), filters) : [];
+
+  const inputs: PlatformDiagnosticInput[] = await Promise.all(
+    facts.map(async (fa) => {
+      const campaigns = aggs.filter((a) => a.platform === fa.platform);
+      const [groupSpan, adSpan] = ready
+        ? await Promise.all([
+            readDetailSpan(workspaceId, fa.platform, "ad_group"),
+            readDetailSpan(workspaceId, fa.platform, "ad"),
+          ])
+        : [emptySpan(), emptySpan()];
+      return {
+        facts: fa,
+        panel: buildPanel({ facts: fa, filters, campaigns, now }),
+        campaigns,
+        detail: { ready, groupSpan, adSpan, nodes: nodes.filter((n) => n.platform === fa.platform) },
+      };
+    }),
+  );
+  return diagnose({ filters, platforms: inputs });
 }

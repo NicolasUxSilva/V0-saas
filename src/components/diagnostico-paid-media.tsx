@@ -4,6 +4,8 @@
  * própria moeda e a própria definição de conversão — por isso os números ficam em cartões
  * separados, nunca somados e nunca postos numa taxa entre plataformas.
  */
+import Link from "next/link";
+
 import { formatCount, formatDateRange, formatDelta, formatMoney } from "@/lib/format";
 import type { PaidMediaMetric, PaidMediaSnapshot } from "@/lib/insight";
 
@@ -47,7 +49,10 @@ export function DiagnosticoPaidMedia({ snapshots }: { snapshots: PaidMediaSnapsh
       <p className="text-xs text-muted-foreground">
         Dados reais de cada plataforma, nos 28 dias mais recentes que ela importou. Moeda e conversões
         seguem a definição de cada plataforma: não são somadas nem comparadas entre si, nem com os
-        key events do GA4.
+        key events do GA4.{" "}
+        <Link href="/campanhas/diagnosticos" className="font-medium text-foreground hover:underline">
+          Diagnóstico por campanha, grupo e anúncio →
+        </Link>
       </p>
       {snapshots.map((s) => (
         <div key={s.platform} className="space-y-2">

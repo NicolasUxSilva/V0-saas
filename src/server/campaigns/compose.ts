@@ -89,6 +89,8 @@ export interface CampaignAggregate {
   /** `null` = nenhuma linha no período (pode ser zero real ou ausência — decide a cobertura) */
   current: Totals | null;
   previous: Totals | null;
+  /** objetivos distintos no intervalo lido (Meta); mais de um = a definição de resultado mudou */
+  objectives?: string[];
 }
 
 // ── estado da plataforma ──────────────────────────────────────────────

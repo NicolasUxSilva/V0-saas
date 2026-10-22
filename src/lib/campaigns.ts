@@ -9,6 +9,7 @@
  *  - variação só existe quando os dois períodos são comparáveis (`comparable`), e a
  *    percentual só quando a base é diferente de zero.
  */
+import type { CampaignDiagnostic } from "@/lib/campaign-diagnostics";
 import type { SourceStatus } from "@/lib/insight";
 
 export type AdPlatform = "google_ads" | "meta_ads";
@@ -174,6 +175,8 @@ export interface CampaignsOverview {
   statusOptions: { value: string; label: string }[];
   /** campanhas sem status (Meta) ficam de fora quando há filtro de status */
   statusFilterExcludes: string | null;
+  /** diagnóstico do período (Fase 2), calculado sobre os mesmos agregados */
+  diagnostics: CampaignDiagnostic[];
 }
 
 export interface EntityRow {

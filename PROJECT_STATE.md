@@ -7,6 +7,10 @@
 
 ## Estado atual (2026-10-05)
 
+> **Atualização (2026-10-22) — veja §20.** **Diagnóstico de campanhas** (Fase 2): `/campanhas/diagnosticos` + alertas
+> na visão geral e nas páginas de campanha/grupo. Determinístico, sem LLM, sem schema novo, sem persistência.
+> **Não commitado** (branch local `fase-2-diagnostico`), aguardando revisão.
+
 > **Atualização (2026-10-21) — veja §19.** Área **Campanhas** (Fase 1 da solução de tráfego pago): visão geral de
 > Google Ads e Meta Ads com período, comparação, filtros e estados reais de importação; detalhe por campanha →
 > grupo/conjunto → anúncio. **Exige a migração 0005 (aditiva, NÃO aplicada)** para os níveis 2 e 3; sem ela, a área
@@ -1183,3 +1187,56 @@ validar a GAQL de `ad_group`/`ad_group_ad` e os níveis da Meta contra as APIs r
 anterior à troca de conta ficam sob a mesma conexão sem a conta de origem na tabela de campanha (`fact_ad_entity_daily`
 já guarda `account_id`); (vi) Performance Max: grupos de recursos não importados; (vii) `formatDateRange` (Diagnóstico)
 mostra só o mês final em períodos que cruzam meses — a área Campanhas usa `formatDateSpan`.
+
+## 20. Diagnóstico de campanhas — Fase 2 do tráfego pago (2026-10-22)
+
+**Estado de partida.** `main` = `676f9f3` (Fase 1). A validação em produção da Fase 1 (deploy, migração 0005 e importação
+real) foi reportada pelo usuário como concluída; nada disso foi verificável desta sessão (sem acesso à Vercel nem ao
+banco). O código da Fase 2 funciona com e sem a 0005.
+
+**Onde.** `/campanhas/diagnosticos` (aba "Diagnóstico" dentro de Campanhas, mesmos filtros de período/comparação/
+plataforma + severidade, tipo, nível e campanha); bloco "Alertas do período" na visão geral; "Diagnóstico desta
+campanha/deste item" nas páginas de campanha e de grupo/conjunto; link a partir do cartão de mídia paga do `/diagnostico`.
+O `/diagnostico` (motor GA4) e o Advisor **não mudaram** e não leem este diagnóstico (INV-26).
+
+**Motor** (`src/server/campaigns/diagnostics/`: `engine.ts`, `stats.ts`, `thresholds.ts`, `view.ts`; tipos em
+`src/lib/campaign-diagnostics.ts`). Árvore plataforma → campanha → grupo/conjunto → anúncio com os totais já decididos
+pela cobertura. Regras:
+- **A · investimento sem resultados** — resultados esperados λ = investimento ÷ custo por resultado das DEMAIS unidades
+  do mesmo nível (irmãs; nunca o próprio gasto). λ < 2: nada; 2–3: inconclusivo; ≥ 3: alerta (confiança média; ≥ 5 alta).
+  Plataforma inteira sem resultado → um único aviso inconclusivo (provável rastreamento), sem acusar campanha a campanha.
+- **B · custo por resultado subiu** (≥ +25%, ≥ 5 resultados em cada período; z log-razão Poisson) e a **melhora**
+  (≤ −25%, informativa).
+- **C · CTR caiu** (≥ −15%; ≥ 1000 impressões em cada período e ≥ 30 cliques antes; z de duas proporções). Meta: CTR de link.
+- **D · CPC subiu** (≥ +20%; ≥ 50 cliques em cada período). Com CPM estável (±15%), é absorvido pelo alerta de CTR
+  (CPC = CPM ÷ (1000 × CTR)).
+- **E · resultados caíram** (≥ −30%; ≥ 10 antes; z Poisson). Custo por resultado estável → "junto com o investimento",
+  severidade baixa.
+- **F · distribuição** — fatia ≥ 25% do investimento do pai em filhos sem resultados (≥ 2 filhos) e concentração ≥ 70% num
+  filho (informativa; o texto diz que não indica problema por si).
+- **G · limitações** — fonte indisponível, dados desatualizados, importação incompleta, comparação indisponível/desligada,
+  dias ainda reprocessáveis, moedas misturadas, objetivo sem resultado definido, objetivo que mudou no intervalo, baixo
+  volume, detalhe indisponível/parcial.
+
+**Severidade × confiança.** Severidade = magnitude (limiares por regra), ajustada ± 1 nível pela fatia do investimento da
+plataforma na mesma moeda (≥ 20% sobe; < 5% desce). Confiança = evidência (z ≥ 2 média, ≥ 3 alta; para A, λ), reduzida um
+nível quando o período inclui dias reprocessáveis ou não está todo fechado. Prioridade = severidade × confiança ×
+(0,5 + fatia); a lista sai em achados → inconclusivos → limitações.
+
+**Sem duplicatas.** Na mesma unidade: A absorve E e B; E (com piora de eficiência) absorve B; CTR absorve CPC com CPM
+estável. Entre níveis: o mesmo tipo num descendente vira "Também aparece em" do ancestral; sinal só no filho fica no filho.
+
+**Leitura.** `readCampaignDiagnostics` / `readCampaignsOverview` (reaproveita fatos e agregados da página) + uma consulta
+nova de grupos/anúncios do workspace (`detailNodesScope`: workspace + plataformas + intervalo, por parâmetro) e
+`objectives` por campanha no intervalo. Nada é gravado, nenhuma importação é disparada.
+
+**Validação.** `pnpm test` → **1362 passam, 38 opt-in pulados** (40 novos: regras A–G, estatística, deduplicação,
+hierarquia, Google × Meta, moedas, cobertura, isolamento no SQL e varredura de `read.ts`). `typecheck`, `lint`, `build`
+limpos; `db:generate` sem mudanças. Postgres 16 local descartável (dados sintéticos, 2 workspaces): diagnósticos esperados,
+isolamento entre workspaces, visão geral = mesma lista; telas conferidas com Playwright sem erros de console. **Nenhum dado
+real foi usado.**
+
+**Limitações.** Limiares iniciais, não calibrados com dados reais (revisar com o piloto); custo por resultado das irmãs
+assume objetivos comparáveis dentro da mesma definição; a página de campanha recalcula o diagnóstico da plataforma (uma
+leitura a mais); Meta segue sem status; sem histórico de alertas (cada leitura recalcula; ids estáveis permitem persistir
+depois); qualidade comercial (CRM/GA4) é Fase 3.
