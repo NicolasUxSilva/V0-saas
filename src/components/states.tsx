@@ -131,8 +131,8 @@ export function PartialState({
   const router = useRouter();
   const retry = onRetry ?? (() => router.refresh());
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
-      <TriangleAlert className="size-4 shrink-0 text-amber-600" aria-hidden />
+    <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-sm">
+      <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
       <span className="text-muted-foreground">{description}</span>
       {retryable ? (
         <Button

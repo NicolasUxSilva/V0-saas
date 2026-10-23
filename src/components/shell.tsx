@@ -3,8 +3,10 @@
 /**
  * Shell da aplicação (bloco A3): sidebar de navegação + topbar.
  *
- * Deliberadamente enxuto — sem identidade visual, sem tema escuro. Prioridade:
- * legibilidade e hierarquia. O conteúdo real de cada tela vem nos blocos A4+.
+ * Deliberadamente enxuto e neutro. Prioridade: legibilidade e hierarquia.
+ * Segue o Design System v1.0 (docs/design-system.md): logo oficial na sidebar
+ * (a única cor de marca do shell), item ativo em cinza e seletor de tema
+ * (Claro / Escuro / Sistema) no menu do usuário.
  */
 import { LayoutDashboard, LogOut, Megaphone, Plug, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -15,6 +17,8 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
+import { Logo } from "@/components/brand/logo";
+import { ThemeMenuGroup } from "@/components/theme-switcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,9 +69,15 @@ export function AppShell({
 
   return (
     <div className="flex min-h-svh bg-background text-foreground">
-      <aside className="flex w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
-        <div className="flex h-14 items-center border-b px-5 font-semibold tracking-tight">
-          v0-saas
+      <aside className="flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+        <div className="flex h-14 items-center border-b border-sidebar-border px-5">
+          <Link
+            href="/"
+            aria-label="The Seed — início"
+            className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          >
+            <Logo className="h-6" />
+          </Link>
         </div>
         <nav className="flex flex-col gap-1 p-3">
           {NAV.map((item) => {
@@ -80,13 +90,19 @@ export function AppShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
-                <Icon className="size-4" aria-hidden />
+                <Icon
+                  className={cn(
+                    "size-4 transition-colors",
+                    active && "text-sidebar-primary",
+                  )}
+                  aria-hidden
+                />
                 {item.label}
               </Link>
             );
@@ -121,6 +137,8 @@ export function AppShell({
                   {user.email ?? "—"}
                 </span>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <ThemeMenuGroup />
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"

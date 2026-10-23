@@ -222,6 +222,7 @@ variáveis obrigatórias (`src/env.ts` valida tudo por Zod no boot).
 
 - [`PROJECT_STATE.md`](PROJECT_STATE.md) — estado atual e registro de desenvolvimento (comece pelo bloco "Estado atual").
 - [`docs/v1-architecture.md`](docs/v1-architecture.md) — arquitetura V1: decisões, invariantes, pipeline, Cross-source e Advisor.
+- [`docs/design-system.md`](docs/design-system.md) — Design System v1.0 do The Seed: tokens, temas, logo, tipografia, componentes e contrastes.
 - [`docs/ga4-setup.md`](docs/ga4-setup.md) — guia operacional para conectar um GA4 real.
 - [`docs/v0-plan.md`](docs/v0-plan.md) — plano e tese da V0 (histórico).
 - `.env.example` — referência das variáveis de ambiente.

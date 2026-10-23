@@ -15,7 +15,7 @@ export default defineConfig({
     alias: { "@": resolve(import.meta.dirname, "src") },
   },
   test: {
-    include: ["src/server/**/*.test.ts"],
+    include: ["src/server/**/*.test.ts", "src/lib/**/*.test.ts"],
     environment: "node",
     env: {
       DATABASE_URL: "postgres://user:pass@localhost:5432/test",
