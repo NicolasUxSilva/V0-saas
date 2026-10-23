@@ -11,17 +11,17 @@ import { cn } from "@/lib/utils";
 function Tile({ metric }: { metric: SupportMetric }) {
   const delta = formatDelta(metric.deltaPct, metric.lowerIsWorse ?? true);
   return (
-    <div className="rounded-lg border p-3">
+    <div className="rounded-2xl border bg-card p-4">
       <div className="text-xs text-muted-foreground">{metric.label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">
+      <div className="mt-1 text-xl font-semibold tabular-nums">
         {formatMetricValue(metric.current, metric.format)}
       </div>
       <div className="mt-0.5 flex items-baseline gap-1.5 text-xs">
         <span
           className={cn(
             "font-medium",
-            delta.tone === "negative" && "text-red-600",
-            delta.tone === "positive" && "text-emerald-600",
+            delta.tone === "negative" && "text-destructive",
+            delta.tone === "positive" && "text-success",
             delta.tone === "neutral" && "text-muted-foreground",
           )}
         >

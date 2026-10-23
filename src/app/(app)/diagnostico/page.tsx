@@ -5,6 +5,7 @@ import { DiagnosticoPaidMedia } from "@/components/diagnostico-paid-media";
 import { DiagnosticoSources } from "@/components/diagnostico-sources";
 import { DiagnosticoSummary } from "@/components/diagnostico-summary";
 import { InsightCard } from "@/components/insight-card";
+import { PageHeader as Header } from "@/components/page-header";
 import { EmptyState, PartialState } from "@/components/states";
 import { SupportMetrics } from "@/components/support-metrics";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { requireWorkspace } from "@/server/auth";
 
 import { getDiagnostico } from "./data";
 
-export const metadata = { title: "Diagnóstico — v0-saas" };
+export const metadata = { title: "Diagnóstico — The Seed" };
 
 const SUPPRESS_LABEL: Record<string, string> = {
   traffic: "tráfego",
@@ -25,19 +26,17 @@ const SUPPRESS_LABEL: Record<string, string> = {
 
 function PageHeader({ demo }: { demo?: boolean }) {
   return (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">
-        Diagnóstico
-        {demo ? (
-          <span className="ml-2 rounded-full bg-amber-500 px-2.5 py-0.5 align-middle text-xs font-semibold text-white">
+    <Header
+      title="Diagnóstico"
+      badge={
+        demo ? (
+          <span className="rounded-full bg-warning-subtle px-2 py-0.5 font-sans text-xs font-medium text-warning">
             DEMONSTRAÇÃO
           </span>
-        ) : null}
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        Onde está o gargalo, o que mudou e o que investigar primeiro.
-      </p>
-    </div>
+        ) : null
+      }
+      description="Onde está o gargalo, o que mudou e o que investigar primeiro."
+    />
   );
 }
 
@@ -49,11 +48,11 @@ function DemoBanner() {
   return (
     <div
       role="note"
-      className="flex items-start gap-3 rounded-lg border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm"
+      className="flex items-start gap-3 rounded-2xl border border-warning-border bg-warning-subtle px-5 py-4 text-sm"
     >
-      <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+      <FlaskConical className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
       <div className="space-y-1">
-        <p className="font-medium text-amber-900">
+        <p className="font-medium text-foreground">
           Modo demonstração — os dados do quadro abaixo são fictícios.
         </p>
         <p className="text-muted-foreground">
@@ -68,8 +67,8 @@ function DemoBanner() {
 
 function DemoFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative space-y-8 rounded-xl border-2 border-dashed border-amber-500/60 p-4 pt-6">
-      <span className="absolute -top-3 left-4 rounded-full bg-amber-500 px-3 py-0.5 text-xs font-semibold text-white">
+    <div className="relative space-y-8 rounded-3xl border border-dashed border-warning-border p-5 pt-7">
+      <span className="absolute -top-3 left-5 rounded-full border border-warning-border bg-background px-2 py-0.5 text-xs font-medium text-warning">
         DEMONSTRAÇÃO — dados fictícios
       </span>
       {children}
@@ -88,10 +87,12 @@ function Section({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-heading text-heading">
         {title}
         {insights.length > 0 ? (
-          <span className="text-foreground"> · {insights.length}</span>
+          <span className="ml-2 font-sans text-sm text-muted-foreground tabular-nums">
+            {insights.length}
+          </span>
         ) : null}
       </h2>
       {insights.length > 0 ? (
@@ -126,10 +127,10 @@ function HonestState({
     .join(", ");
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-heading text-heading">
         Diagnóstico de tendência
       </h2>
-      <div className="rounded-lg border bg-muted/20 p-4 text-sm">
+      <div className="rounded-2xl border bg-card p-5 text-sm">
         <p className="font-medium text-foreground">
           Nenhuma variação estatisticamente relevante no período.
         </p>
@@ -245,9 +246,11 @@ export default async function DiagnosticoPage() {
 
       {dismissed.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-heading text-heading">
             Descartados
-            <span className="text-foreground"> · {dismissed.length}</span>
+            <span className="ml-2 font-sans text-sm text-muted-foreground tabular-nums">
+              {dismissed.length}
+            </span>
           </h2>
           <div className="space-y-2">
             {dismissed.map((i) => (
@@ -261,7 +264,7 @@ export default async function DiagnosticoPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-heading text-heading">
           Métricas de apoio
         </h2>
         <p className="text-xs text-muted-foreground">

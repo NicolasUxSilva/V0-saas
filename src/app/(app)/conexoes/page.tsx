@@ -5,11 +5,12 @@ import {
   RdStationCrmConnectionCard,
   RdStationMarketingConnectionCard,
 } from "@/components/connection-cards";
+import { PageHeader } from "@/components/page-header";
 import { requireWorkspace } from "@/server/auth";
 import { getGa4ConnectionForWorkspace } from "@/server/connectors/ga4/connection";
 import { getConnectionForWorkspace } from "@/server/connectors/shared/connection";
 
-export const metadata = { title: "Conexões — v0-saas" };
+export const metadata = { title: "Conexões — The Seed" };
 
 /** Mensagens compartilhadas do fluxo OAuth (mesmos códigos p/ qualquer provider). */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -98,69 +99,64 @@ export default async function ConexoesPage(props: PageProps<"/conexoes">) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Conexões</h1>
-        <p className="text-sm text-muted-foreground">
-          Fontes de dados do workspace.
-        </p>
-      </div>
+      <PageHeader title="Conexões" description="Fontes de dados do workspace." />
 
       {ga4Error ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-destructive-border bg-destructive-subtle px-5 py-4 text-sm">
           {GA4_ERROR_MESSAGES[ga4Error] ?? `Erro ao conectar o GA4: ${ga4Error}`}
         </div>
       ) : null}
       {adsError ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-destructive-border bg-destructive-subtle px-5 py-4 text-sm">
           {GOOGLE_ADS_ERROR_MESSAGES[adsError] ??
             `Erro ao conectar o Google Ads: ${adsError}`}
         </div>
       ) : null}
       {metaError ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-destructive-border bg-destructive-subtle px-5 py-4 text-sm">
           {META_ADS_ERROR_MESSAGES[metaError] ?? `Erro ao conectar o Meta Ads: ${metaError}`}
         </div>
       ) : null}
       {rdMarketingError ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-destructive-border bg-destructive-subtle px-5 py-4 text-sm">
           {RD_MARKETING_ERROR_MESSAGES[rdMarketingError] ??
             `Erro ao conectar o RD Station Marketing: ${rdMarketingError}`}
         </div>
       ) : null}
       {rdCrmError ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-destructive-border bg-destructive-subtle px-5 py-4 text-sm">
           {RD_CRM_ERROR_MESSAGES[rdCrmError] ??
             `Erro ao conectar o RD Station CRM: ${rdCrmError}`}
         </div>
       ) : null}
       {ga4Ok ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-success-border bg-success-subtle px-5 py-4 text-sm">
           GA4 conectado — {count}{" "}
           {count === "1" ? "propriedade encontrada" : "propriedades encontradas"}.
           Escolha qual analisar abaixo.
         </div>
       ) : null}
       {adsOk ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-success-border bg-success-subtle px-5 py-4 text-sm">
           Google Ads conectado — {count}{" "}
           {count === "1" ? "conta encontrada" : "contas encontradas"}. Escolha
           qual analisar abaixo.
         </div>
       ) : null}
       {metaOk ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-success-border bg-success-subtle px-5 py-4 text-sm">
           Meta Ads conectado — {count}{" "}
           {count === "1" ? "conta de anúncios encontrada" : "contas de anúncios encontradas"}.
           Escolha qual analisar abaixo.
         </div>
       ) : null}
       {rdMarketingOk ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-success-border bg-success-subtle px-5 py-4 text-sm">
           RD Station Marketing conectado.
         </div>
       ) : null}
       {rdCrmOk ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 px-4 py-3 text-sm">
+        <div className="rounded-2xl border border-success-border bg-success-subtle px-5 py-4 text-sm">
           RD Station CRM conectado.
         </div>
       ) : null}

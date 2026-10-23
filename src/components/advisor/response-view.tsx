@@ -36,46 +36,46 @@ const SOURCE_LABEL: Record<AdvisorSource, string> = {
 };
 
 const STATUS: Record<AdvisorResponseStatus, { label: string; className: string }> = {
-  answered: { label: "Respondido", className: "border-emerald-600/30 bg-emerald-50 text-emerald-700" },
-  partial: { label: "Parcial", className: "border-amber-600/30 bg-amber-50 text-amber-800" },
-  not_computable: { label: "Não computável", className: "border-slate-500/30 bg-slate-100 text-slate-700" },
-  no_data: { label: "Sem dados", className: "border-slate-500/30 bg-slate-100 text-slate-700" },
-  needs_model: { label: "Requer modelo de linguagem", className: "border-violet-600/30 bg-violet-50 text-violet-700" },
+  answered: { label: "Respondido", className: "border-success-border bg-success-subtle text-success" },
+  partial: { label: "Parcial", className: "border-warning-border bg-warning-subtle text-warning" },
+  not_computable: { label: "Não computável", className: "border-border bg-secondary text-muted-foreground" },
+  no_data: { label: "Sem dados", className: "border-border bg-secondary text-muted-foreground" },
+  needs_model: { label: "Requer modelo de linguagem", className: "border-border bg-secondary text-muted-foreground" },
 };
 
 const LAYER: Record<AdvisorItemLayer, { label: string; border: string; chip: string }> = {
-  fact: { label: "Fato", border: "border-l-slate-400", chip: "border-slate-500/30 bg-slate-100 text-slate-700" },
+  fact: { label: "Fato", border: "border-l-subtle-foreground", chip: "border-border bg-secondary text-muted-foreground" },
   observable_relationship: {
     label: "Relação observável",
-    border: "border-l-sky-500",
-    chip: "border-sky-600/30 bg-sky-50 text-sky-700",
+    border: "border-l-info",
+    chip: "border-info-border bg-info-subtle text-info",
   },
   hypothesis: {
     label: "Hipótese",
-    border: "border-l-violet-500 border-dashed",
-    chip: "border-violet-600/30 bg-violet-50 text-violet-700",
+    border: "border-l-subtle-foreground border-dashed",
+    chip: "border-border bg-secondary text-muted-foreground border-dashed",
   },
   limitation: {
     label: "Limitação",
-    border: "border-l-amber-500",
-    chip: "border-amber-600/30 bg-amber-50 text-amber-800",
+    border: "border-l-warning",
+    chip: "border-warning-border bg-warning-subtle text-warning",
   },
   diagnostic: {
     label: "Diagnóstico do motor",
-    border: "border-l-blue-500",
-    chip: "border-blue-600/30 bg-blue-50 text-blue-700",
+    border: "border-l-subtle-foreground",
+    chip: "border-border bg-secondary text-muted-foreground",
   },
   comparison: {
     label: "Comparação",
-    border: "border-l-emerald-500",
-    chip: "border-emerald-600/30 bg-emerald-50 text-emerald-700",
+    border: "border-l-subtle-foreground",
+    chip: "border-border bg-secondary text-muted-foreground",
   },
 };
 
 const SEVERITY: Record<AdvisorLimitationSeverity, { label: string; border: string; chip: string }> = {
-  blocking: { label: "Bloqueante", border: "border-l-red-500", chip: "border-red-600/30 bg-red-50 text-red-700" },
-  warning: { label: "Atenção", border: "border-l-amber-500", chip: "border-amber-600/30 bg-amber-50 text-amber-800" },
-  info: { label: "Definição", border: "border-l-slate-400", chip: "border-slate-500/30 bg-slate-100 text-slate-700" },
+  blocking: { label: "Bloqueante", border: "border-l-destructive", chip: "border-destructive-border bg-destructive-subtle text-destructive" },
+  warning: { label: "Atenção", border: "border-l-warning", chip: "border-warning-border bg-warning-subtle text-warning" },
+  info: { label: "Definição", border: "border-l-subtle-foreground", chip: "border-border bg-secondary text-muted-foreground" },
 };
 
 function Chip({ className, children }: { className: string; children: React.ReactNode }) {
@@ -240,7 +240,7 @@ function fallbackLimitation(response: AdvisorResponse): AdvisorLimitation | unde
 
 function FallbackNotice({ limitation }: { limitation: AdvisorLimitation }) {
   return (
-    <div role="status" className="rounded-xl border border-amber-600/30 bg-amber-50 p-4 text-sm text-amber-900">
+    <div role="status" className="rounded-2xl border border-warning-border bg-warning-subtle p-5 text-sm text-foreground">
       <p className="font-semibold">A resposta do modelo de linguagem não pôde ser usada</p>
       <p className="mt-1">{limitation.message}</p>
       <p className="mt-1 text-xs">Abaixo está a resposta determinística do sistema, calculada a partir dos mesmos dados.</p>
@@ -375,7 +375,7 @@ export function AdvisorResponseView({
       {notice ? <FallbackNotice limitation={notice} /> : null}
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id="adv-title" className="text-lg font-semibold tracking-tight">
+          <h2 id="adv-title" className="font-heading text-heading">
             {response.title}
           </h2>
           <Chip className={status.className}>{status.label}</Chip>

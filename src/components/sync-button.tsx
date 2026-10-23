@@ -50,7 +50,7 @@ export function SyncButton({ disabled }: { disabled?: boolean }) {
       ) : null}
 
       {outcome && outcome.status !== "failed" ? (
-        <p className="text-xs text-emerald-700">
+        <p className="text-xs text-success">
           {outcome.status === "partial"
             ? "Parcial (teto de linhas atingido): "
             : "Concluído: "}
@@ -60,7 +60,7 @@ export function SyncButton({ disabled }: { disabled?: boolean }) {
       ) : null}
 
       {error || outcome?.status === "failed" ? (
-        <p className="text-xs text-red-700">
+        <p className="text-xs text-destructive">
           Erro: {error ?? outcome?.error}
         </p>
       ) : null}

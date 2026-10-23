@@ -18,8 +18,23 @@ const fills = (svg: string) =>
   [...svg.matchAll(/fill:\s*(#[0-9a-f]{3,6})/gi)].map((m) => m[1]!.toLowerCase());
 
 describe("logo The Seed", () => {
-  it("o lockup é o original, só com outro enquadramento", () => {
-    expect(normalize(read("public/brand/theseed-logo.svg"))).toBe(normalize(ORIGINAL));
+  const withoutBackground = normalize(ORIGINAL).replace(
+    /\s*<g clip-path="url\(#clip-path-2\)">[\s\S]*?<\/g>/,
+    "",
+  );
+
+  it("lockup do claro: original sem fundo, wordmark em verde", () => {
+    const lockup = read("public/brand/theseed-logo-light.svg");
+    expect(normalize(lockup)).toBe(
+      withoutBackground.replace(".cls-3{fill:#ffffff}", ".cls-3{fill:#00bf63}"),
+    );
+    expect(lockup).not.toContain('class="cls-1"');
+  });
+
+  it("lockup do escuro: original sem fundo, cores originais", () => {
+    const lockup = read("public/brand/theseed-logo-dark.svg");
+    expect(normalize(lockup)).toBe(withoutBackground);
+    expect(lockup).not.toContain('class="cls-1"');
   });
 
   it.each(["public/brand/theseed-mark.svg", "src/app/icon.svg"])(
@@ -34,7 +49,7 @@ describe("logo The Seed", () => {
     },
   );
 
-  it.each(["public/brand/theseed-logo.svg", "public/brand/theseed-mark.svg"])(
+  it.each(["public/brand/theseed-mark.svg"])(
     "%s mantém exatamente as cores originais",
     (file) => {
       expect(fills(read(file))).toEqual(fills(ORIGINAL));

@@ -1,9 +1,12 @@
 // Gera os arquivos de uso da logo The Seed a partir do SVG original.
 //
-// Regra: nada é recolorido nem redesenhado. Cada variante é o próprio original
-// (mesmos caminhos, mesmas classes e cores) com outro enquadramento (`viewBox`).
-// A variante compacta só omite o wordmark; o símbolo e o fundo verde são os
-// originais.
+// Regra: nada é redesenhado. Cada variante é o próprio original (mesmos
+// caminhos) com outro enquadramento (`viewBox`).
+//  - Lockup sem o fundo verde (decisões do usuário em 2026-10-23), símbolo no
+//    amarelo original:
+//      theseed-logo-light.svg → wordmark verde #00BF63, para o tema claro;
+//      theseed-logo-dark.svg  → wordmark branco original, para o tema escuro.
+//  - Marca compacta (favicon): símbolo amarelo sobre o fundo verde originais.
 //
 // Uso (na raiz do repositório):
 //   node scripts/generate-brand-assets.mjs
@@ -19,9 +22,9 @@ const svg = fs.readFileSync(original, "utf8");
 const ORIGINAL_VIEWBOX = 'viewBox="0 0 1122.667 793.333"';
 if (!svg.includes(ORIGINAL_VIEWBOX)) throw new Error("viewBox original inesperado");
 
-// Recorte do campo verde em volta do wordmark + símbolo (margem uniforme de
-// 56 unidades sobre a caixa medida 108,5–1011,9 × 300,6–443,3).
-const LOCKUP_VIEWBOX = "52 244 1016 256";
+// Caixa medida do wordmark + símbolo (108,5–1011,9 × 300,6–443,3) com margem
+// de ~4 unidades.
+const LOCKUP_VIEWBOX = "104 296 912 152";
 // Quadrado centrado no símbolo (851,1–1011,9 × 304–441,4), sem o wordmark.
 const MARK_VIEWBOX = "810.95 252 241 241";
 
@@ -30,10 +33,21 @@ const withViewBox = (source, viewBox) =>
     .replace(ORIGINAL_VIEWBOX, `viewBox="${viewBox}"`)
     .replace("<title>Design sem nome.svg</title>", "<title>The Seed</title>");
 
-// 1) Lockup: o original inteiro, só recortado.
+// 1) Lockups sem fundo: removem o grupo do fundo verde. No claro, o wordmark
+//    (classe cls-3) passa de branco para o verde da marca; no escuro, fica
+//    branco como no original.
+const BACKGROUND_GROUP = /\s*<g clip-path="url\(#clip-path-2\)">[\s\S]*?<\/g>/;
+const WORDMARK_FILL = ".cls-3{fill:#ffffff}";
+if (!BACKGROUND_GROUP.test(svg)) throw new Error("grupo do fundo não encontrado");
+if (!svg.includes(WORDMARK_FILL)) throw new Error("cor do wordmark inesperada");
+const withoutBackground = svg.replace(BACKGROUND_GROUP, "");
 fs.writeFileSync(
-  path.join(root, "public/brand/theseed-logo.svg"),
-  withViewBox(svg, LOCKUP_VIEWBOX),
+  path.join(root, "public/brand/theseed-logo-light.svg"),
+  withViewBox(withoutBackground.replace(WORDMARK_FILL, ".cls-3{fill:#00bf63}"), LOCKUP_VIEWBOX),
+);
+fs.writeFileSync(
+  path.join(root, "public/brand/theseed-logo-dark.svg"),
+  withViewBox(withoutBackground, LOCKUP_VIEWBOX),
 );
 
 // 2) Marca compacta: o original recortado no símbolo, sem o grupo do wordmark.

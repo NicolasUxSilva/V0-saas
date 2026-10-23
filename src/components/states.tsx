@@ -28,7 +28,7 @@ function StateShell({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center",
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-6 py-16 text-center",
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function LoadingState({
     <div className="space-y-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="space-y-2 rounded-lg border p-4">
+        <div key={i} className="space-y-2 rounded-2xl border bg-card p-5">
           <Skeleton className="h-4 w-2/5" />
           <Skeleton className="h-3 w-4/5" />
           <Skeleton className="h-3 w-3/5" />
@@ -73,7 +73,7 @@ export function EmptyState({
     <StateShell>
       <Icon className="size-6 text-muted-foreground" aria-hidden />
       <div className="space-y-1">
-        <p className="font-medium">{title}</p>
+        <p className="font-heading text-heading">{title}</p>
         {description ? (
           <p className="mx-auto max-w-sm text-sm text-muted-foreground">
             {description}
@@ -99,7 +99,7 @@ export function ErrorState({
   const router = useRouter();
   const retry = onRetry ?? (() => router.refresh());
   return (
-    <StateShell className="border-destructive/40">
+    <StateShell className="border-destructive-border">
       <TriangleAlert className="size-6 text-destructive" aria-hidden />
       <div className="space-y-1">
         <p className="font-medium">{title}</p>
@@ -131,7 +131,7 @@ export function PartialState({
   const router = useRouter();
   const retry = onRetry ?? (() => router.refresh());
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-sm">
+    <div className="flex items-center gap-2 rounded-2xl border border-warning-border bg-warning-subtle px-4 py-2.5 text-sm">
       <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
       <span className="text-muted-foreground">{description}</span>
       {retryable ? (

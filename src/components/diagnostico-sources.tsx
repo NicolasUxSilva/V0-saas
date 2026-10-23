@@ -20,8 +20,8 @@ const ATTENTION: ReadonlySet<SourceHealth> = new Set([
 ]);
 
 function Icon({ health }: { health: SourceHealth }) {
-  if (health === "synced") return <CircleCheck className="size-4 text-emerald-600" aria-hidden />;
-  if (ATTENTION.has(health)) return <CircleAlert className="size-4 text-amber-600" aria-hidden />;
+  if (health === "synced") return <CircleCheck className="size-4 text-success" aria-hidden />;
+  if (ATTENTION.has(health)) return <CircleAlert className="size-4 text-warning" aria-hidden />;
   return <CircleDashed className="size-4 text-muted-foreground" aria-hidden />;
 }
 
@@ -30,22 +30,22 @@ const BR = (iso: string) => iso.split("-").reverse().join("/");
 export function DiagnosticoSources({ sources }: { sources: SourceStatus[] }) {
   return (
     <section className="space-y-3" aria-label="Fontes de dados">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-heading text-heading">
         Fontes de dados
       </h2>
       <p className="text-xs text-muted-foreground">
         O estado real de cada fonte neste workspace — e o que cada uma alimenta.
       </p>
-      <ul className="divide-y rounded-lg border">
+      <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
         {sources.map((s) => (
-          <li key={s.key} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3">
+          <li key={s.key} className="flex flex-wrap items-start gap-x-3 gap-y-1 px-5 py-4">
             <span className="mt-0.5">
               <Icon health={s.health} />
             </span>
             <div className="min-w-0 flex-1 space-y-0.5">
               <div className="text-sm font-medium">{s.label}</div>
               <div className="text-sm text-muted-foreground">{s.summary}</div>
-              {s.notice ? <div className="text-xs text-amber-700">{s.notice}</div> : null}
+              {s.notice ? <div className="text-xs text-warning">{s.notice}</div> : null}
               <div className="text-xs text-muted-foreground">
                 Alimenta {s.feeds}.
                 {s.coverage ? ` Dados de ${BR(s.coverage.first)} a ${BR(s.coverage.last)}.` : ""}

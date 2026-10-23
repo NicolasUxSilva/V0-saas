@@ -51,7 +51,7 @@ export function GoogleAdsSyncButton({ disabled }: { disabled?: boolean }) {
       ) : null}
 
       {outcome && outcome.status !== "failed" ? (
-        <p className="text-xs text-emerald-700">
+        <p className="text-xs text-success">
           {outcome.status === "partial"
             ? outcome.error
               ? `Parcial (${outcome.error}): `
@@ -63,7 +63,7 @@ export function GoogleAdsSyncButton({ disabled }: { disabled?: boolean }) {
       ) : null}
 
       {error || outcome?.status === "failed" ? (
-        <p className="text-xs text-red-700">Erro: {error ?? outcome?.error}</p>
+        <p className="text-xs text-destructive">Erro: {error ?? outcome?.error}</p>
       ) : null}
     </div>
   );

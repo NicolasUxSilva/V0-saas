@@ -58,8 +58,7 @@ function StatusBadge({ status }: { status: Ga4ConnectionView["connection"]["stat
   if (status === "connected") {
     return (
       <Badge
-        variant="outline"
-        className="border-emerald-600/30 bg-emerald-50 text-emerald-700"
+        variant="success"
       >
         Conectado
       </Badge>
@@ -68,8 +67,7 @@ function StatusBadge({ status }: { status: Ga4ConnectionView["connection"]["stat
   if (status === "reauth_required") {
     return (
       <Badge
-        variant="outline"
-        className="border-amber-600/30 bg-amber-50 text-amber-800"
+        variant="warning"
       >
         Reautorização necessária
       </Badge>
@@ -77,8 +75,7 @@ function StatusBadge({ status }: { status: Ga4ConnectionView["connection"]["stat
   }
   return (
     <Badge
-      variant="outline"
-      className="border-red-600/30 bg-red-50 text-red-700"
+      variant="destructive"
     >
       Erro
     </Badge>
@@ -104,7 +101,7 @@ export function Ga4ConnectionCard({ state }: { state: Ga4ConnectionView | null }
           {/* navegação de página inteira para a rota que redireciona ao Google */}
           <a
             href="/api/oauth/ga4/start"
-            className={cn(buttonVariants({ size: "sm" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
             Conectar GA4
           </a>
@@ -132,12 +129,12 @@ export function Ga4ConnectionCard({ state }: { state: Ga4ConnectionView | null }
 
       <CardContent className="space-y-4">
         {connection.status === "reauth_required" ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-sm text-muted-foreground">
             O acesso ao GA4 expirou ou foi revogado. Reconecte a conta.
           </div>
         ) : null}
         {connection.lastError ? (
-          <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-xs text-muted-foreground">
             Último erro: {connection.lastError}
           </div>
         ) : null}
@@ -159,7 +156,7 @@ export function Ga4ConnectionCard({ state }: { state: Ga4ConnectionView | null }
 
         {recentSyncRuns.length > 0 ? (
           <div className="space-y-1.5">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-label text-muted-foreground">
               Histórico
             </div>
             <ul className="space-y-1 text-xs text-muted-foreground">
@@ -171,9 +168,9 @@ export function Ga4ConnectionCard({ state }: { state: Ga4ConnectionView | null }
                   <span
                     className={cn(
                       "inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full",
-                      run.status === "success" && "bg-emerald-500",
-                      run.status === "partial" && "bg-amber-500",
-                      run.status === "failed" && "bg-red-500",
+                      run.status === "success" && "bg-success",
+                      run.status === "partial" && "bg-warning",
+                      run.status === "failed" && "bg-destructive",
                       run.status === "running" && "bg-muted-foreground",
                     )}
                     aria-hidden
@@ -192,7 +189,7 @@ export function Ga4ConnectionCard({ state }: { state: Ga4ConnectionView | null }
                     </span>
                   ) : null}
                   {run.status === "failed" && run.error ? (
-                    <span className="text-red-700">
+                    <span className="text-destructive">
                       · {run.error.slice(0, 120)}
                     </span>
                   ) : null}
@@ -247,7 +244,7 @@ export function GoogleAdsConnectionCard({
           {/* navegação de página inteira para a rota que redireciona ao Google */}
           <a
             href="/api/oauth/google_ads/start"
-            className={cn(buttonVariants({ size: "sm" }))}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
             Conectar Google Ads
           </a>
@@ -275,12 +272,12 @@ export function GoogleAdsConnectionCard({
 
       <CardContent className="space-y-4">
         {connection.status === "reauth_required" ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-sm text-muted-foreground">
             O acesso ao Google Ads expirou ou foi revogado. Reconecte a conta.
           </div>
         ) : null}
         {connection.lastError ? (
-          <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-xs text-muted-foreground">
             Último erro: {connection.lastError}
           </div>
         ) : null}
@@ -306,7 +303,7 @@ export function GoogleAdsConnectionCard({
 
         {recentSyncRuns.length > 0 ? (
           <div className="space-y-1.5">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-label text-muted-foreground">
               Histórico
             </div>
             <ul className="space-y-1 text-xs text-muted-foreground">
@@ -318,9 +315,9 @@ export function GoogleAdsConnectionCard({
                   <span
                     className={cn(
                       "inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full",
-                      run.status === "success" && "bg-emerald-500",
-                      run.status === "partial" && "bg-amber-500",
-                      run.status === "failed" && "bg-red-500",
+                      run.status === "success" && "bg-success",
+                      run.status === "partial" && "bg-warning",
+                      run.status === "failed" && "bg-destructive",
                       run.status === "running" && "bg-muted-foreground",
                     )}
                     aria-hidden
@@ -339,7 +336,7 @@ export function GoogleAdsConnectionCard({
                     </span>
                   ) : null}
                   {run.status === "failed" && run.error ? (
-                    <span className="text-red-700">
+                    <span className="text-destructive">
                       · {run.error.slice(0, 120)}
                     </span>
                   ) : null}
@@ -409,7 +406,7 @@ function RdSingleAccountCard({
         </CardHeader>
         <CardContent>
           {/* navegação de página inteira para a rota que redireciona ao RD Station */}
-          <a href={connectHref} className={cn(buttonVariants({ size: "sm" }))}>
+          <a href={connectHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
             Conectar {title}
           </a>
         </CardContent>
@@ -434,12 +431,12 @@ function RdSingleAccountCard({
 
       <CardContent className="space-y-4">
         {connection.status === "reauth_required" ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-sm text-muted-foreground">
             O acesso ao {title} expirou ou foi revogado. Reconecte a conta.
           </div>
         ) : null}
         {connection.lastError ? (
-          <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-xs text-muted-foreground">
             Último erro: {connection.lastError}
           </div>
         ) : null}
@@ -463,7 +460,7 @@ function RdSingleAccountCard({
 
         {recentSyncRuns.length > 0 ? (
           <div className="space-y-1.5">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-label text-muted-foreground">
               Histórico
             </div>
             <ul className="space-y-1 text-xs text-muted-foreground">
@@ -475,9 +472,9 @@ function RdSingleAccountCard({
                   <span
                     className={cn(
                       "inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full",
-                      run.status === "success" && "bg-emerald-500",
-                      run.status === "partial" && "bg-amber-500",
-                      run.status === "failed" && "bg-red-500",
+                      run.status === "success" && "bg-success",
+                      run.status === "partial" && "bg-warning",
+                      run.status === "failed" && "bg-destructive",
                       run.status === "running" && "bg-muted-foreground",
                     )}
                     aria-hidden
@@ -496,7 +493,7 @@ function RdSingleAccountCard({
                     </span>
                   ) : null}
                   {run.status === "failed" && run.error ? (
-                    <span className="text-red-700">
+                    <span className="text-destructive">
                       · {run.error.slice(0, 120)}
                     </span>
                   ) : null}
@@ -606,7 +603,7 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
         </CardHeader>
         <CardContent>
           {/* navegação de página inteira para a rota que redireciona à Meta */}
-          <a href="/api/oauth/meta_ads/start" className={cn(buttonVariants({ size: "sm" }))}>
+          <a href="/api/oauth/meta_ads/start" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
             Conectar Meta Ads
           </a>
         </CardContent>
@@ -635,13 +632,13 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
 
       <CardContent className="space-y-4">
         {connection.status === "reauth_required" ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-sm text-muted-foreground">
             O acesso ao Meta Ads expirou ou foi revogado. A Meta não renova o acesso sozinha:
             reconecte a conta.
           </div>
         ) : null}
         {expiringSoon ? (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-sm text-muted-foreground">
             {daysLeft! <= 0
               ? "O acesso ao Meta Ads expira hoje."
               : `O acesso ao Meta Ads expira em ${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}.`}{" "}
@@ -649,7 +646,7 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
           </div>
         ) : null}
         {connection.lastError ? (
-          <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-md border border-destructive-border bg-destructive-subtle px-3 py-2 text-xs text-muted-foreground">
             Último erro: {connection.lastError}
           </div>
         ) : null}
@@ -679,7 +676,7 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
 
         {recentSyncRuns.length > 0 ? (
           <div className="space-y-1.5">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-label text-muted-foreground">
               Histórico
             </div>
             <ul className="space-y-1 text-xs text-muted-foreground">
@@ -688,9 +685,9 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
                   <span
                     className={cn(
                       "inline-block size-1.5 shrink-0 translate-y-[-1px] rounded-full",
-                      run.status === "success" && "bg-emerald-500",
-                      run.status === "partial" && "bg-amber-500",
-                      run.status === "failed" && "bg-red-500",
+                      run.status === "success" && "bg-success",
+                      run.status === "partial" && "bg-warning",
+                      run.status === "failed" && "bg-destructive",
                       run.status === "running" && "bg-muted-foreground",
                     )}
                     aria-hidden
@@ -708,7 +705,7 @@ export function MetaAdsConnectionCard({ state }: { state: ConnectionView | null 
                     </span>
                   ) : null}
                   {run.status === "failed" && run.error ? (
-                    <span className="text-red-700">· {run.error.slice(0, 120)}</span>
+                    <span className="text-destructive">· {run.error.slice(0, 120)}</span>
                   ) : null}
                 </li>
               ))}

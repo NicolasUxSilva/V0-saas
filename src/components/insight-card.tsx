@@ -52,35 +52,35 @@ type Accent = { border: string; badge: string; label: string };
 function accentFor(insight: Insight): Accent {
   if (insight.kind === "opportunity") {
     return {
-      border: "border-l-emerald-500",
-      badge: "border-emerald-600/30 bg-emerald-50 text-emerald-700",
+      border: "border-l-success",
+      badge: "border-success-border bg-success-subtle text-success",
       label: "Oportunidade",
     };
   }
   if (insight.kind === "data_quality") {
     return {
-      border: "border-l-slate-400",
-      badge: "border-slate-500/30 bg-slate-100 text-slate-700",
+      border: "border-l-subtle-foreground",
+      badge: "border-border bg-secondary text-muted-foreground",
       label: "Qualidade dos dados",
     };
   }
   if (insight.severity === "critical") {
     return {
-      border: "border-l-red-500",
-      badge: "border-red-600/30 bg-red-50 text-red-700",
+      border: "border-l-destructive",
+      badge: "border-destructive-border bg-destructive-subtle text-destructive",
       label: "Crítico",
     };
   }
   return {
-    border: "border-l-amber-500",
-    badge: "border-amber-600/30 bg-amber-50 text-amber-800",
+    border: "border-l-warning",
+    badge: "border-warning-border bg-warning-subtle text-warning",
     label: "Atenção",
   };
 }
 
 function priorityTone(score: number): string {
-  if (score >= 80) return "border-red-600/30 bg-red-50 text-red-700";
-  if (score >= 60) return "border-amber-600/30 bg-amber-50 text-amber-800";
+  if (score >= 80) return "border-destructive-border bg-destructive-subtle text-destructive";
+  if (score >= 60) return "border-warning-border bg-warning-subtle text-warning";
   return "border-border bg-muted text-muted-foreground";
 }
 
@@ -94,7 +94,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-label text-muted-foreground">
         {label}
       </div>
       <p className="text-sm leading-relaxed text-foreground">{children}</p>
@@ -115,7 +115,7 @@ function ImpactStat({ impact }: { impact: InsightImpact }) {
       : `${formatMetricValue(impact.value, "count")} ${unitLabel}`.trim();
   return (
     <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="text-label text-muted-foreground">
         Impacto
       </span>
       <span className="text-sm font-semibold">
@@ -141,8 +141,8 @@ function EvidenceBlock({
   const deltaTone = !hasMove
     ? "text-muted-foreground"
     : kind === "opportunity"
-      ? "text-emerald-600"
-      : "text-red-600";
+      ? "text-success"
+      : "text-destructive";
   const deltaText = formatDelta(evidence.deltaPct).text;
   const fmt = (n: number) => formatMetricValue(n, evidence.format);
   // Sem antes/depois numérico (ex.: "sem key events no período"): mostra o texto
@@ -153,7 +153,7 @@ function EvidenceBlock({
     (evidence.breakdown?.length ?? 0) === 0;
   return (
     <div className="space-y-1">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-label text-muted-foreground">
         Evidências
       </div>
       <div className="rounded-md border bg-muted/30 p-3">
@@ -441,7 +441,7 @@ export function InsightCard({ insight }: { insight: Insight }) {
           </RatingButton>
         </div>
         {error ? (
-          <p className="w-full text-xs text-red-700">{error}</p>
+          <p className="w-full text-xs text-destructive">{error}</p>
         ) : null}
       </CardFooter>
     </Card>

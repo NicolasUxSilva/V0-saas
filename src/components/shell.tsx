@@ -3,10 +3,10 @@
 /**
  * Shell da aplicação (bloco A3): sidebar de navegação + topbar.
  *
- * Deliberadamente enxuto e neutro. Prioridade: legibilidade e hierarquia.
- * Segue o Design System v1.0 (docs/design-system.md): logo oficial na sidebar
- * (a única cor de marca do shell), item ativo em cinza e seletor de tema
- * (Claro / Escuro / Sistema) no menu do usuário.
+ * Deliberadamente enxuto e neutro, no estilo de referência (trysoro.com):
+ * sidebar clara com itens arredondados (ativo em cinza), cabeçalho flutuante e
+ * seletor de tema (Claro / Escuro / Sistema) no menu do usuário. Ver
+ * docs/design-system.md.
  */
 import { LayoutDashboard, LogOut, Megaphone, Plug, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -69,17 +69,17 @@ export function AppShell({
 
   return (
     <div className="flex min-h-svh bg-background text-foreground">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-        <div className="flex h-14 items-center border-b border-sidebar-border px-5">
+      <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+        <div className="flex h-[4.5rem] items-center px-5">
           <Link
             href="/"
             aria-label="The Seed — início"
-            className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           >
-            <Logo className="h-6" />
+            <Logo className="h-5" />
           </Link>
         </div>
-        <nav className="flex flex-col gap-1 p-3">
+        <nav className="flex flex-col gap-0.5 px-3">
           {NAV.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -90,10 +90,10 @@ export function AppShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  "flex h-9 items-center gap-2.5 rounded-xl px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <Icon
@@ -111,47 +111,50 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-4 border-b px-6">
-          <span className="truncate text-sm font-medium">{workspaceName}</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {lastSyncLabel ?? "Sem sincronização"}
-          </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-              aria-label="Menu do usuário"
-            >
-              <Avatar size="sm">
-                {user.image ? (
-                  <AvatarImage src={user.image} alt="" />
-                ) : null}
-                <AvatarFallback>{initials(user)}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <span className="block text-sm font-medium">
-                  {user.name ?? "Usuário"}
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {user.email ?? "—"}
-                </span>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <ThemeMenuGroup />
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => void signOutAction()}
+        {/* Cabeçalho flutuante: cartão arredondado com borda fina. */}
+        <div className="sticky top-0 z-20 bg-background px-6 pt-4 pb-2">
+          <header className="flex h-14 items-center gap-3 rounded-2xl border bg-card px-4 shadow-xs">
+            <span className="truncate text-sm font-medium">{workspaceName}</span>
+            <span className="ml-auto rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+              {lastSyncLabel ?? "Sem sincronização"}
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Menu do usuário"
               >
-                <LogOut className="size-4" aria-hidden />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
+                <Avatar size="sm">
+                  {user.image ? (
+                    <AvatarImage src={user.image} alt="" />
+                  ) : null}
+                  <AvatarFallback>{initials(user)}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <span className="block text-sm font-medium">
+                    {user.name ?? "Usuário"}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user.email ?? "—"}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <ThemeMenuGroup />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => void signOutAction()}
+                >
+                  <LogOut className="size-4" aria-hidden />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+        </div>
 
-        <main className="min-w-0 flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 px-6 pt-8 pb-12">{children}</main>
       </div>
     </div>
   );

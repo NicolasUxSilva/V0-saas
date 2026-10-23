@@ -1,42 +1,37 @@
 # The Seed — Design System v1.0
 
 Fundação visual do produto: tokens, temas, logo, tipografia, ícones, movimento e
-componentes compartilhados. Esta etapa **não** redesenha as páginas; ela define o
-que o redesign global vai aplicar.
+componentes compartilhados, e a sua aplicação ao shell e às telas Diagnóstico,
+Conexões, Advisor e login.
 
-Revisão visual: `/dev/design-system` — uma tela-modelo (cabeçalho, filtros,
-métricas, tabela, estados) montada só com os componentes compartilhados. Exige
-login, como `/dev/states`.
+Revisão visual: `/dev/design-system` — uma tela-modelo montada só com os
+componentes compartilhados. Exige login, como `/dev/states`.
 
 ## Direção
 
-Interface silenciosa: neutra, com hierarquia feita por tipografia, espaço e
-alinhamento. A identidade do The Seed aparece na logo e em poucos detalhes; os
-dados são o centro.
+Referência de linguagem: **trysoro.com** (decisão de 2026-10-23), aplicada com as
+regras já aprovadas de contenção de cor.
 
-- **Menos cor.** A interface é branca/cinza (claro) ou preta/carvão (escuro).
-- **Verde só onde importa:** a ação principal da tela. Seleção, foco, hover, item
-  ativo e badges padrão são neutros.
-- **Amarelo:** só dentro da logo.
-- **Estados** (sucesso, alerta, erro, informação) usam cor semântica de baixa
-  intensidade: texto na cor do estado sobre fundo a 8 % (12 % no escuro).
-- **Sem decoração:** cards sem sombra; sem brilho, gradiente, desfoque ou filtro.
-- **Na dúvida, neutro.**
+- **Do Soro:**
+  - títulos em fonte display geométrica (Cal Sans);
+  - superfícies brancas com cinza claríssimo;
+  - cantos generosos (12–16 px);
+  - botões, badges e filtros em pílula;
+  - cabeçalho flutuante;
+  - sidebar clara com item ativo em cinza;
+  - uma única ação colorida por tela.
+- **Do Soro, rejeitado:** o brilho colorido no CTA e o desfoque; continuam proibidos.
+- **Mantido:** a interface é neutra e os dados são o centro. O verde aparece em
+  poucas funções, cada uma bem definida (abaixo).
 
-Referência estudada (princípios, não layout): ratosdeia.com.br/skills — uma cor de
-acento, superfícies neutras, cards só com borda fina, uma CTA cheia e o resto em
-contorno, números grandes como hierarquia.
+### Funções do verde
 
-### Correções em relação à primeira versão
-
-| Problema | Causa | Correção |
+| Função | Cor | Onde |
 |---|---|---|
-| Serifa aparecendo na interface | `--font-sans: var(--font-geist-sans)` sem fallback: sem a variável, a pilha ficava inválida e o navegador usava a serifa padrão | Pilha com fallback sem serifa em `--font-sans` e `--font-mono` |
-| Verde saturado em tudo | `primary`, `ring`, item ativo, linha selecionada e badge "brand" em verde | Verde só em `primary`; foco, ativo e seleção neutros; badge "brand" removido |
-| Logo recolorida por tema | Variantes "claro" (floresta + verde) e "escuro" geradas por mim | Removidas; a logo é o arquivo original recortado, igual nos dois temas |
-| Componentes pesados | Sombras em card, foco verde de 3 px, badge padrão verde, desabilitado verde apagado, desfoque em overlays | Sem sombra em card; foco cinza de 2 px; badge neutro; desabilitado neutro; sem desfoque |
-| Claro esverdeado | Fundo `#F5F8F5` e sidebar `#EDF3EE` | Fundo `#F7F8F7`; sidebar igual ao fundo, separada por borda |
-| Página "catálogo" | `/dev/design-system` era uma vitrine de amostras | Virou uma tela-modelo de produto |
+| Marca | `#00BF63` | Logo (wordmark no claro), favicon, `chart-1` no escuro |
+| Ação | `#008A49` | Botão `default`, uma ação principal por tela |
+| Sucesso | `success` (verde-sálvia de baixa saturação) | Estados de sucesso e conexão, nunca como marca |
+| Seleção | — | Neutra: fundo cinza (`accent` / `sidebar-accent`), sem verde |
 
 ## Onde ficam as coisas
 
@@ -48,65 +43,72 @@ contorno, números grandes como hierarquia.
 | Provedor e seletores de tema | `src/components/theme-provider.tsx`, `src/components/theme-switcher.tsx` |
 | Logo | `src/components/brand/logo.tsx`, `public/brand/*.svg` |
 | Favicon / ícone iOS | `src/app/icon.svg`, `src/app/apple-icon.png` |
-| Gerador dos recortes da logo | `scripts/generate-brand-assets.mjs` |
-| Primitivos de UI | `src/components/ui/*` (shadcn `base-nova` sobre Base UI) |
+| Gerador da logo | `scripts/generate-brand-assets.mjs` |
+| Cabeçalho de página | `src/components/page-header.tsx` |
+| Primitivos de UI (inclui `Alert`) | `src/components/ui/*` (shadcn `base-nova` sobre Base UI) |
 | Estados (vazio, carregando, erro, parcial) | `src/components/states.tsx` |
 
 Regra: componentes usam **tokens semânticos** (`bg-card`, `text-muted-foreground`,
-`bg-primary`, `text-success`, `border-border`…). Hex solto e paletas do Tailwind
-(`amber-500`, `emerald-600`…) não entram em código novo. As páginas atuais ainda
-têm essas classes; a migração é do redesign.
+`bg-primary`, `text-success`, `bg-warning-subtle`, `border-destructive-border`…).
+Hex solto e paletas do Tailwind (`amber-500`, `emerald-50`…) não entram em código.
+Fora de Campanhas, não restam classes de paleta fixa.
 
 ## Cores
 
-### Marca (fixas)
-
-| Token | Valor | Uso |
-|---|---|---|
-| `seed-green` | `#00BF63` | Assinatura. Só na logo (e `chart-1` no escuro). Nunca alterado. |
-| `seed-yellow` | `#FFDE59` | Só na logo. |
-| `action-green` | `#008A49` | Ação principal (`primary`) nos dois temas. |
-
-### Semânticas
+### Neutros
 
 | Token | Claro | Escuro | Papel |
 |---|---|---|---|
-| `background` | `#F7F8F7` | `#090B09` | Fundo |
-| `sidebar` | `#F7F8F7` | `#0D100D` | Sidebar (no claro, igual ao fundo + borda) |
-| `card` | `#FFFFFF` | `#121512` | Cards e superfícies |
-| `popover` | `#FFFFFF` | `#191D19` | Menus, modais, painéis, tooltips |
-| `secondary` / `muted` / `accent` | `#F1F3F1` | `#191D19` / `#161916` / `#1D221E` | Superfícies secundárias, hover, seleção |
-| `sidebar-accent` | `#ECEEEC` | `#191D19` | Item ativo da navegação |
-| `foreground` | `#202522` | `#F5F7F5` | Texto principal |
-| `muted-foreground` | `#6A716B` ⚠︎ | `#929A93` | Texto secundário |
-| `border` | `#E5E8E5` | `#282D29` | Bordas |
-| `input` | `#D5D9D5` | `#333934` | Borda de campo |
-| `ring` | `#858C86` | `#6B726C` | Foco (neutro) |
-| `primary` / `-foreground` | `#008A49` / `#FFFFFF` | idem | Ação principal |
-| `primary-hover` | `#007A41` | `#007A41` | Hover da ação |
-| `success` | `#2E7D53` | `#6CC495` | Sucesso |
-| `warning` | `#8F6200` | `#D9AE55` | Alerta |
-| `destructive` | `#B3382F` | `#E58378` | Erro / ação destrutiva |
-| `info` | `#2F63A6` | `#86A9DE` | Informação |
-| `chart-1…5` | `#008A49` `#5B635D` `#2F63A6` `#8F6200` `#8C938D` | `#00BF63` `#B5BCB6` `#86A9DE` `#D9AE55` `#6C746E` | Séries (marca + neutros + 2 semânticas suaves) |
+| `background` | `#FFFFFF` | `#0B0C0B` | Fundo da página |
+| `sidebar` | `#FAFBFA` | `#101210` | Sidebar |
+| `card` | `#FFFFFF` | `#151715` | Cards |
+| `popover` | `#FFFFFF` | `#1B1E1B` | Superfícies elevadas: menus, modais, painéis, tooltips |
+| `secondary` / `accent` | `#F3F4F3` | `#1B1E1B` / `#1F221F` | Superfícies secundárias, hover, seleção |
+| `muted` | `#F6F7F6` | `#181A18` | Fundos neutros discretos |
+| `sidebar-accent` | `#ECEEEC` | `#1B1E1B` | Item ativo da navegação |
+| `foreground` | `#202522` | `#F2F4F2` | Texto principal |
+| `muted-foreground` | `#5C635D` | `#A0A69F` | Texto secundário |
+| `subtle-foreground` | `#6A716B` | `#858D85` | Texto auxiliar |
+| `border` | `#E6E8E6` | `#2B302C` | Bordas principais |
+| `border-subtle` | `#EFF1EF` | `#222622` | Bordas secundárias |
+| `input` | `#D3D8D3` | `#3A403B` | Borda de campo |
+| `ring` | `#858C86` | `#787F79` | Foco (neutro) |
 
-⚠︎ Ajustes em relação à paleta pedida, só por contraste:
+No escuro, as superfícies sobem em degraus pequenos de luminosidade (fundo → sidebar
+→ card → elevada), sempre neutras. A separação vem do degrau mais a borda, nunca de
+sombra.
 
-| Pedido | Usado | Motivo |
+### Ação e marca
+
+| Token | Valor | Uso |
 |---|---|---|
-| Texto secundário `#707771` | `#6A716B` | `#707771` dá 4,32:1 no fundo e 4,12:1 na superfície secundária (mínimo 4,5:1). `#6A716B` dá 4,71 / 4,50 / 5,02 (fundo / secundária / card). |
-| Ação `#008A49` | **mantido** | Exceção de contraste aprovada (ver abaixo). |
+| `primary` / `-foreground` | `#008A49` / `#FFFFFF` | Botão principal (exceção de contraste aprovada, abaixo) |
+| `primary-hover` | `#007A41` | Hover do botão principal |
+| `brand` | `#00BF63` | Acento pontual de marca |
+| `seed-green` / `seed-yellow` | `#00BF63` / `#FFDE59` | Cores da logo; não usar em componentes |
 
-### Exceção de contraste aprovada
+### Estados
 
-| Data | Decisão |
-|---|---|
-| 2026-10-23 | `#008A49` permanece como verde de ação (`primary`) nos dois temas, por decisão de marca do responsável pelo produto. |
+Uma família: no escuro, mesma luminosidade e saturação baixa, variando só o matiz.
+Cada estado tem três tokens. O fundo e a borda são derivados da cor por uma única
+regra (`color-mix` sobre o `card`: 8 % / 30 % no claro, 12 % / 35 % no escuro).
 
-- **Medição:** texto branco sobre `#008A49` = **4,44:1**. Fica 0,06 abaixo do WCAG 2.x AA para texto normal (4,5:1). Passa o AA para texto grande (3:1) e o contraste de componente (3:1).
-- **Onde se aplica:** só no rótulo dos botões `default` (`primary-foreground` sobre `primary`), em 14 px e peso 500. No hover (`#007A41`), o contraste sobe para 5,44:1.
-- **Mitigação:** o verde aparece em uma ação por tela, sempre com rótulo curto e sem texto longo sobre ele. Texto verde sobre fundo claro não é usado.
-- **Para cumprir o AA estrito no futuro:** trocar `--primary` para `#007F41` (5,11:1) em `src/app/globals.css`. É uma linha por tema.
+| Estado | Cor (texto/ícone) claro · escuro | Classes |
+|---|---|---|
+| Sucesso | `#337344` · `#7CBD89` | `text-success` `bg-success-subtle` `border-success-border` |
+| Atenção | `#875800` · `#D3A056` | `text-warning` `bg-warning-subtle` `border-warning-border` |
+| Erro | `#A03F3C` · `#E47C75` | `text-destructive` `bg-destructive-subtle` `border-destructive-border` |
+| Informação | `#386695` · `#7FAFE2` | `text-info` `bg-info-subtle` `border-info-border` |
+
+São usados por `Badge` (variantes `success`/`warning`/`destructive`/`info`), `Alert`,
+`PartialState`/`ErrorState`, avisos de Conexões, acentos dos insights e das camadas
+do Advisor. Camadas sem significado de estado (fato, comparação, hipótese) ficam
+neutras. O roxo que existia no Advisor foi removido.
+
+### Gráficos
+
+`chart-1…5`: claro `#008A49` `#5B635D` `#386695` `#875800` `#8C938D`; escuro
+`#00BF63` `#B5BCB6` `#7FAFE2` `#D3A056` `#6C746E`.
 
 ### Contrastes medidos (WCAG 2.x)
 
@@ -114,122 +116,121 @@ Texto (mínimo 4,5:1):
 
 | Par | Claro | Escuro |
 |---|---|---|
-| foreground / background | 14,62 | 18,34 |
-| muted-foreground / background | 4,71 | 6,83 |
-| muted-foreground / card | 5,02 | 6,36 |
-| muted-foreground / popover | 5,02 | 5,90 |
+| foreground / background | 15,6 | 17,73 |
+| muted-foreground / fundo · card · elevada | 6,2 · 6,2 · 6,2 | 7,88 · 7,25 · 6,77 |
+| subtle-foreground / fundo · card · elevada | 5,02 | 5,74 · 5,27 · 4,92 |
 | primary-foreground / primary | **4,44** | **4,44** |
 | primary-foreground / primary-hover | 5,44 | 5,44 |
-| badge neutro | 13,90 | 13,12 |
-| badge sucesso / alerta / erro / info | 4,54 / 4,81 / 5,28 / 5,44 | 7,09 / 7,22 / 5,81 / 6,31 |
-| botão desabilitado (texto / fundo) | 4,50 | 6,13 |
+| estado / fundo suave do estado (sucesso · atenção · erro · info) | 5,13 · 5,48 · 5,71 · 5,38 | 6,62 · 6,31 · 5,40 · 6,41 |
 
-Não texto (mínimo 3:1): `ring` 3,24 no fundo e 3,45 no card (claro), 4,00 (escuro);
-`chart-*` ≥ 3,15 (claro) e ≥ 3,82 (escuro).
+Não texto (mínimo 3:1): `ring` ≥ 3,45 no claro e ≥ 4,39 no escuro.
 
-Limites conhecidos, deliberados: `border` (1,23:1) e `input` (1,43:1 claro; 1,56:1
-escuro) ficam abaixo de 3:1 para manter bordas finas e discretas. Campos continuam
-identificáveis pelo rótulo, pelo placeholder e pelo foco; erro aparece com borda
-vermelha cheia.
+Limites deliberados: `border` (1,23:1 no claro; 1,34:1 sobre o card no escuro) e
+`input` ficam abaixo de 3:1 para manter bordas finas.
+
+### Exceção de contraste aprovada
+
+| Data | Decisão |
+|---|---|
+| 2026-10-23 | `#008A49` permanece como verde de ação (`primary`) nos dois temas, por decisão de marca do responsável pelo produto. |
+
+- **Medição:** branco sobre `#008A49` = **4,44:1**, 0,06 abaixo do AA para texto
+  normal (4,5:1). Passa o AA para texto grande e para componente (3:1).
+- **Onde se aplica:** só no rótulo dos botões `default` (14 px, peso 500). No hover
+  (`#007A41`), o contraste sobe para 5,44:1.
+- **Mitigação:** uma ação verde por tela, rótulo curto, nenhum texto verde sobre
+  fundo claro. Em Conexões, os botões "Conectar" são neutros (`outline`).
+- **Para cumprir o AA estrito no futuro:** `--primary: #007F41` (5,11:1).
 
 ## Temas
 
 Três opções: **Claro**, **Escuro**, **Sistema** (padrão).
 
-- **Persistência:** `localStorage["theseed-theme"]` (`light` | `dark`; ausência = sistema).
-  Só neste navegador.
-- **Sem flash:** script inline no `<head>` (`THEME_INIT_SCRIPT`) aplica `.dark` e
-  `color-scheme` em `<html>` antes da primeira pintura (guia
-  `preventing-flash-before-hydration.md` do Next 16). Sem `next-themes`.
-- **Sistema ao vivo:** o `ThemeProvider` escuta `prefers-color-scheme`.
-- **Troca:** instantânea, com transições congeladas no instante da troca (classe
-  `theme-switching`), para a página mudar inteira no mesmo quadro.
+- **Persistência:** `localStorage["theseed-theme"]`.
+- **Sem flash:** script inline no `<head>` aplica `.dark` antes da primeira pintura
+  (guia `preventing-flash-before-hydration.md` do Next 16). Sem `next-themes`.
+- **Sistema:** acompanha `prefers-color-scheme` ao vivo.
+- **Troca:** instantânea, com as transições congeladas no instante da troca.
 - **Outras abas:** sincronizadas pelo evento `storage`.
-- **Onde trocar:** menu do usuário (topbar) e controle no login.
-- O tema muda só tokens de interface. A logo é `<img>` de arquivo fixo e não é
-  afetada.
+- **Onde trocar:** menu do usuário e controle no login.
 
 ## Logo
 
 Fonte: `Asset-1.svg`, preservado byte a byte em
-`public/brand/theseed-logo-original.svg` (teste confere).
+`public/brand/theseed-logo-original.svg`. O original tem a prancheta inteira em
+verde, com o wordmark branco e o símbolo amarelo.
 
-Estrutura do original: prancheta 1122,667 × 793,333 inteira em verde `#00BF63`, com
-o wordmark branco e o símbolo amarelo numa faixa central. O fundo verde faz parte
-da arte, então a solução fiel é **recortar**, não remover nem recolorir:
+**Decisões (2026-10-23):** no produto a logo **não tem fundo**. O símbolo fica sempre
+no amarelo original. O wordmark é **verde `#00BF63` no tema claro** e **branco
+(original) no tema escuro**.
 
 | Arquivo | O que é | Uso |
 |---|---|---|
 | `theseed-logo-original.svg` | Original intacto | Referência |
-| `theseed-logo.svg` | O original com `viewBox="52 244 1016 256"` (margem uniforme de 56 unidades em volta da marca). Única outra diferença: o `<title>`. | Sidebar, login, qualquer lugar |
-| `theseed-mark.svg` = `src/app/icon.svg` | O original com `viewBox` quadrado no símbolo e sem o grupo do wordmark | Favicon, espaços compactos |
-| `src/app/apple-icon.png` | `theseed-mark.svg` rasterizado a 180 px (Quick Look do macOS) | Ícone iOS |
+| `theseed-logo-light.svg` | Original sem o grupo do fundo, `.cls-3` (wordmark) em `#00bf63`, `viewBox="104 296 912 152"` | Tema claro |
+| `theseed-logo-dark.svg` | Original sem o grupo do fundo, cores originais, mesmo `viewBox` | Tema escuro |
+| `theseed-mark.svg` = `src/app/icon.svg` | Original recortado no símbolo, sem o wordmark (símbolo amarelo sobre o verde original) | Favicon |
+| `src/app/apple-icon.png` | `theseed-mark.svg` rasterizado a 180 px | Ícone iOS |
 
-- Mesmas cores (verde, branco, amarelo) nos dois temas; os testes conferem que os
-  recortes têm exatamente as cores e os caminhos do original.
-- No código: `<Logo />` e `<LogoMark />` renderizam `<img>`, então nenhum CSS da
-  página alcança as cores internas. Proibido: filtro, opacidade, blend, recolorir.
-- Cantos: `rounded-sm` (≈5 px) no elemento `<img>`. É apresentação, não muda a arte;
-  remover a classe deixa o recorte reto como no original.
-- Para regerar: `node scripts/generate-brand-assets.mjs`. O PNG do iOS é refeito à
-  parte (`qlmanage -t -s 180 public/brand/theseed-mark.svg`).
+- As formas nunca mudam; os testes conferem que cada arquivo só difere do original
+  no que foi decidido.
+- `<Logo />` renderiza os dois `<img>` e mostra um por tema (`dark:hidden` /
+  `hidden dark:block`). Por serem `<img>`, nenhum CSS alcança as cores internas.
+  Proibido: filtro, opacidade, blend.
+- No claro, o broto amarelo tem 1,3:1 sobre o branco (sutil; logos são isentos de
+  WCAG). No escuro, o branco tem 18:1 e o amarelo, 14,9:1.
+- Para regerar: `node scripts/generate-brand-assets.mjs`; o PNG do iOS à parte
+  (`qlmanage -t -s 180 public/brand/theseed-mark.svg`).
 
 ## Tipografia
 
-Geist Sans em toda a interface; Geist Mono só para detalhes técnicos pequenos
-(ex.: identificadores). Ambas por `next/font`, com fallback sem serifa. Nenhuma
-serifa no produto.
+- **Títulos** (`font-heading`): Cal Sans, só peso 400, sem serifa, por `next/font`.
+  Usar em títulos de página, de seção e de card. Nunca com `font-semibold`.
+- **Interface:** Geist Sans. **Dados técnicos:** Geist Mono.
+- Toda a pilha tem fallback sem serifa.
 
-| Classe | Tamanho / altura | Peso | Uso |
-|---|---|---|---|
-| `text-title` | 22 / 28 | 600 | Título de página |
-| `text-heading` | 16 / 24 | 600 | Título de seção ou card |
-| `text-body` | 14 / 20 | 400 | Texto de interface |
-| `text-caption` | 12 / 16 | 400 | Legenda, nota |
-| `text-label` | 12 / 16 | 500 | Rótulo, cabeçalho de tabela |
-| `text-metric` | 24 / 32 | 600, −0,02em | Métrica; sempre com `tabular-nums` |
+| Classe | Fonte | Tamanho / altura | Peso | Uso |
+|---|---|---|---|---|
+| `font-heading text-title` | Cal Sans | 28 / 36 | 400 | Título de página (`PageHeader`) |
+| `font-heading text-heading` | Cal Sans | 18 / 26 | 400 | Título de seção, `CardTitle`, título de estado |
+| `text-body` | Geist | 14 / 20 | 400 | Texto de interface |
+| `text-caption` | Geist | 12 / 16 | 400 | Legenda |
+| `text-label` | Geist | 12 / 16 | 500 | Rótulo (sem caixa-alta) |
+| `text-metric` | Geist | 24 / 32 | 600 | Métrica, com `tabular-nums` |
 
-Pesos: 400 e 500 na maior parte; 600 só em títulos e métricas. Sem itálico. Tabelas
-têm `tabular-nums` por padrão.
+Rótulos e seções deixaram a caixa-alta e o espaçamento largo (estilo Soro).
 
-## Ícones
+## Formas e componentes
 
-Lucide, única biblioteca. `size-4` em navegação, botões, menus e tabelas; `size-3.5`
-em botões `sm`; `size-3` em badges; `size-6` em estados vazios/erro. Cor neutra por
-padrão (`text-muted-foreground` ou herdada). Decorativo: `aria-hidden`; botão só
-com ícone: `aria-label`.
-
-## Componentes
+- **Raios:** base 12 px (`--radius: 0.75rem`). Cards, avisos, listas e estados usam
+  `rounded-2xl`; campos usam `rounded-lg`; botões, badges, seletor de tema e status
+  usam `rounded-full`.
+- **Sombras:** só `shadow-xs` no cabeçalho flutuante e `shadow-md`/`shadow-lg` em
+  sobreposições. Cards não têm sombra.
 
 | Componente | Regra |
 |---|---|
-| `Button` | `default` = verde, **uma por tela**; desabilitado vira neutro. `outline`/`secondary`/`ghost` neutros. `destructive` em vermelho suave, só para ação destrutiva. `link` neutro sublinhado. Foco: anel cinza de 2 px com afastamento. |
-| `Badge` | Padrão neutro translúcido; `success`/`warning`/`destructive`/`info` em baixa intensidade; `outline`. Cantos `rounded-md`, não pílula. Usar só quando o estado ajuda a ler. |
-| `Card` | Fundo `card`, borda fina, **sem sombra**. |
-| `Input`, `Textarea`, `Select`, `Label` | Fundo neutro, borda fina; foco = borda `ring` + halo cinza de 20 %; erro = borda vermelha cheia, sem brilho. |
-| `Table` | Cabeçalho `text-label` em cinza; separadores finos; hover cinza leve; selecionado = `accent` (cinza). |
-| `Tooltip`, `DropdownMenu` | Superfície `popover`, borda, `shadow-md`. |
-| `Dialog`, `Sheet` | `popover` + `shadow-lg`; véu `black/25` (claro) e `black/60` (escuro), sem desfoque. |
-| Estados | `EmptyState`/`ErrorState` com borda tracejada; `PartialState` em `warning`. |
-| Shell | Sidebar neutra; item ativo em `sidebar-accent` (cinza) com ícone na cor do texto; logo oficial no topo. |
+| `Button` | Pílula (`h-9`). `default` = verde, uma por tela; desabilitado neutro. `outline`/`secondary`/`ghost` neutros. `destructive` em `destructive-subtle`. |
+| `Badge` | Pílula. Padrão neutro translúcido; variantes de estado com os tokens de estado. |
+| `Alert` | Faixa com borda, fundo suave e ícone do estado; o texto fica na cor normal. |
+| `Card` | `rounded-2xl`, borda fina, sem sombra, `p-5`; `CardTitle` em Cal Sans. |
+| `Input`, `Select` | `h-9`, `rounded-lg`, foco neutro, erro com borda vermelha cheia. |
+| `Table` | Cabeçalho `text-label` cinza; seleção em cinza. |
+| `PageHeader` | Título Cal Sans + descrição cinza + selo opcional + ações. |
+| Shell | Sidebar clara (`sidebar`), itens `rounded-xl` com ativo em `sidebar-accent`; cabeçalho flutuante `rounded-2xl` com borda, sobre faixa de fundo sólido. |
 
-Estados cobertos: hover, foco, selecionado (`aria-current`, `data-state=selected`,
-`aria-checked`), erro (`aria-invalid`), desabilitado.
+## Telas aplicadas
 
-## Raios, sombras, movimento
+- **Login, shell, Diagnóstico, Conexões, Advisor** (página e `response-view`) e
+  estados.
+- **Campanhas fica de fora** por decisão de 2026-10-23: a Fase 3 está em andamento em
+  outra sessão. Campanhas herda os tokens, o shell e os componentes compartilhados,
+  mas suas telas e `components/campaigns/*` não foram editados e ainda têm classes de
+  paleta fixa.
+- **`advisor-workspace.tsx` não foi editado**, porque tem trabalho não commitado (a
+  exportação em PDF) no checkout principal.
 
-- Raio base 8 px (`--radius: 0.5rem`): botões e campos `rounded-lg`; cards e modais
-  `rounded-xl`; badges e itens de menu `rounded-md`.
-- Sombras só em sobreposições (`shadow-md` menus/tooltips, `shadow-lg` modal/painel).
-- Transições de 150 ms (padrão) a 200 ms, `ease-standard`. Hover = troca de cor;
-  botão afunda 1 px ao clicar. Sem animação decorativa ou contínua (o `Skeleton`
-  pulsa só enquanto carrega). `prefers-reduced-motion` zera animações e transições.
+## Movimento
 
-## Para o redesign global
-
-- Migrar `diagnostico`, `campanhas`, `conexoes` e `advisor` das classes
-  `amber/emerald/red/sky/violet-*` para os tokens.
-- Aplicar a escala tipográfica e `text-metric` nas telas.
-- Títulos de página que ainda dizem "v0-saas".
-- `SelectValue` do Base UI mostra o *valor* (não o rótulo) até hidratar; ao usar
-  `Select` nas telas, passar `items` ao `Select` para renderizar o rótulo no servidor.
+Transições de 150–200 ms (`ease-standard`). Sem animação decorativa.
+`prefers-reduced-motion` zera animações e transições.

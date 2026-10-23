@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cal_Sans, Geist, Geist_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -11,6 +11,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
 });
+// Títulos (font-heading). Só tem peso 400: não usar com font-semibold/bold.
+const calSans = Cal_Sans({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-cal-sans",
+});
 
 export const metadata: Metadata = {
   title: "The Seed",
@@ -19,8 +25,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f8f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#090b09" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c0b" },
   ],
 };
 
@@ -28,7 +34,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="pt-BR"
-      className={cn("font-sans", geistSans.variable, geistMono.variable)}
+      className={cn(
+        "font-sans",
+        geistSans.variable,
+        geistMono.variable,
+        calSans.variable,
+      )}
       suppressHydrationWarning
     >
       <head>

@@ -51,7 +51,7 @@ export function ThemeToggleGroup({ className }: { className?: string }) {
       role="radiogroup"
       aria-label="Tema"
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-lg border bg-card p-0.5",
+        "inline-flex items-center gap-0.5 rounded-full border bg-card p-0.5",
         className,
       )}
     >
@@ -67,7 +67,7 @@ export function ThemeToggleGroup({ className }: { className?: string }) {
             title={label}
             onClick={() => setPreference(value)}
             className={cn(
-              "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
               selected && "bg-accent text-foreground",
             )}
           >

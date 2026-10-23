@@ -14,9 +14,9 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center px-6 py-20">
       <div className="w-full max-w-sm space-y-8">
-        <Logo className="h-8" />
+        <Logo className="h-7" />
         <div className="space-y-1">
-          <h1 className="text-title">Entrar</h1>
+          <h1 className="font-heading text-title">Entrar</h1>
           <p className="text-sm text-muted-foreground">
             Entre para acessar o diagnóstico.
           </p>

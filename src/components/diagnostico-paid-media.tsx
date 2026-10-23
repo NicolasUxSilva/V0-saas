@@ -21,9 +21,9 @@ function previousOf(m: PaidMediaMetric, currency: string | null): string | null 
 function Tile({ metric, currency }: { metric: PaidMediaMetric; currency: string | null }) {
   const previous = previousOf(metric, currency);
   return (
-    <div className="rounded-lg border p-3">
+    <div className="rounded-2xl border bg-card p-4">
       <div className="text-xs text-muted-foreground">{metric.label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">{valueOf(metric, currency)}</div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{valueOf(metric, currency)}</div>
       <div className="mt-0.5 text-xs text-muted-foreground">
         {previous === null ? (
           "sem período anterior para comparar"
@@ -43,7 +43,7 @@ export function DiagnosticoPaidMedia({ snapshots }: { snapshots: PaidMediaSnapsh
   if (snapshots.length === 0) return null;
   return (
     <section className="space-y-3" aria-label="Mídia paga">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-heading text-heading">
         Mídia paga
       </h2>
       <p className="text-xs text-muted-foreground">

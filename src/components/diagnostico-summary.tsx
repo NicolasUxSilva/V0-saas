@@ -42,30 +42,30 @@ export function DiagnosticoSummary({ data }: { data: DiagnosticoData }) {
   const dataQuality = by((k) => k === "data_quality");
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-muted/20 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border bg-card px-5 py-4">
       <Stat
         icon={ShieldAlert}
         count={critical}
         label="críticos"
-        tone="text-red-600"
+        tone="text-destructive"
       />
       <Stat
         icon={TriangleAlert}
         count={attention}
         label="pontos de atenção"
-        tone="text-amber-600"
+        tone="text-warning"
       />
       <Stat
         icon={Lightbulb}
         count={opportunities}
         label="oportunidades"
-        tone="text-emerald-600"
+        tone="text-success"
       />
       <Stat
         icon={CircleAlert}
         count={dataQuality}
         label="qualidade dos dados"
-        tone="text-slate-500"
+        tone="text-muted-foreground"
       />
       <div className="ml-auto text-xs text-muted-foreground">
         {data.lastSyncedAt

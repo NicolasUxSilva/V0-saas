@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 
 import { AdvisorWorkspace } from "@/components/advisor/advisor-workspace";
+import { PageHeader as Header } from "@/components/page-header";
 import { EmptyState } from "@/components/states";
 import { ADVISOR_SUGGESTIONS } from "@/server/advisor/intents";
 import { isAdvisorEnabled } from "@/server/advisor/flag";
@@ -8,17 +9,14 @@ import { advisorLlmStatus } from "@/server/advisor/llm/config";
 import { defaultReaders } from "@/server/advisor/readers";
 import { requireWorkspace } from "@/server/auth";
 
-export const metadata = { title: "Advisor — v0-saas" };
+export const metadata = { title: "Advisor — The Seed" };
 
 function PageHeader() {
   return (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">Advisor</h1>
-      <p className="text-sm text-muted-foreground">
-        Interpreta o diagnóstico e o Cross-source já calculados. A IA interpreta; o sistema
-        calcula.
-      </p>
-    </div>
+    <Header
+      title="Advisor"
+      description="Interpreta o diagnóstico e o Cross-source já calculados. A IA interpreta; o sistema calcula."
+    />
   );
 }
 

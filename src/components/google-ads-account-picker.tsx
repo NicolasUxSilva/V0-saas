@@ -35,7 +35,7 @@ export function GoogleAdsAccountPicker({
 
   return (
     <fieldset className="space-y-2" disabled={pending}>
-      <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <legend className="text-label text-muted-foreground">
         Conta a analisar
       </legend>
       {accounts.map((a) => (
